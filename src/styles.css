@@ -396,6 +396,8 @@ label select:focus, label textarea:focus { outline: 2px solid var(--accent); bor
 .search-hit { font-family: var(--hand); color: var(--pen); font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .saved.notice { color: var(--accent); font-weight: 600; }
 .segmented.compact button { padding: 0 14px; }
+/* Typed words under the eraser fade out, then go when the pen lifts */
+.line-text .fading { opacity: 0.2; text-decoration: line-through; }
 .segmented.choice { background: var(--bg); align-self: flex-start; flex-wrap: wrap; }
 .small-note { font-size: 14px; }
 .round.small-round { width: 44px; height: 44px; background: var(--bg); flex: none; }

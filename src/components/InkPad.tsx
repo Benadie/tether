@@ -55,6 +55,9 @@ const inkRight = (line: NoteLine) => {
   return max
 }
 
+/** Words and the spaces between them, so each word can be erased on its own. */
+const tokens = (text: string) => text.split(/(\s+)/)
+
 const isEmpty = (l?: NoteLine) => !l || (!l.text.trim() && !l.strokes.length)
 
 const blankLine = (): NoteLine => ({ id: uid(), text: '', strokes: [], tags: [] })
@@ -185,7 +188,46 @@ export function InkPad(props: {
     setSelected(isEmpty(page.lines[row]) || row === selected ? null : row)
   }
 
-  function eraseAt(x: number, y: number) {
+  /** Typed words the eraser has passed over in this gesture ("lineId#tokenIndex"); removed on pen-up. */
+  const fadingRef = useRef(new Set<string>())
+  const [fading, setFading] = useState<Set<string>>(new Set())
+
+  function eraseWordsAt(cx: number, cy: number) {
+    let hit = false
+    // A small eraser footprint rather than a single point.
+    for (const [dx, dy] of [[0, 0], [9, 0], [-9, 0], [0, 9], [0, -9]]) {
+      const el = (document.elementFromPoint(cx + dx, cy + dy) as HTMLElement | null)?.closest<HTMLElement>('[data-word]')
+      const key = el?.dataset.word
+      if (key && !fadingRef.current.has(key)) {
+        fadingRef.current.add(key)
+        hit = true
+      }
+    }
+    if (hit) setFading(new Set(fadingRef.current))
+  }
+
+  /** Deletes the faded words when the eraser lifts (one Undo step with any ink erased). */
+  function finishWordErase() {
+    const keys = fadingRef.current
+    if (!keys.size) return
+    const lines = working.current.map((line) => {
+      const gone = new Set([...keys].filter((k) => k.startsWith(`${line.id}#`)).map((k) => Number(k.split('#')[1])))
+      if (!gone.size) return line
+      const text = tokens(line.text)
+        .filter((_, i) => !gone.has(i))
+        .join('')
+        .replace(/\s+/g, ' ')
+        .trim()
+      return { ...line, text }
+    })
+    fadingRef.current = new Set()
+    setFading(new Set())
+    working.current = lines
+    commit(lines, false)
+  }
+
+  function eraseAt(x: number, y: number, cx: number, cy: number) {
+    eraseWordsAt(cx, cy)
     const row = rowAt(y)
     let changed = false
     const erased: string[] = []
@@ -234,7 +276,7 @@ export function InkPad(props: {
       history.current.push(page.lines)
       working.current = page.lines
       gesture.current = { kind: 'erase', id: e.pointerId }
-      eraseAt(...local(e))
+      eraseAt(...local(e), e.clientX, e.clientY)
       return
     }
     const simulate = e.pointerType !== 'pen'
@@ -253,12 +295,14 @@ export function InkPad(props: {
       g.lastY = e.clientY
       return
     }
-    const events = e.nativeEvent.getCoalescedEvents?.() ?? [e.nativeEvent]
+    // Coalesced events give every pen sample between frames; some browsers return an empty list.
+    const coalesced = e.nativeEvent.getCoalescedEvents?.()
+    const events = coalesced?.length ? coalesced : [e.nativeEvent]
     if (g.kind === 'erase') {
-      for (const ev of events) eraseAt(...local(ev))
+      for (const ev of events) eraseAt(...local(ev), ev.clientX, ev.clientY)
       return
     }
-    for (const ev of events.length ? events : [e.nativeEvent]) addPoint(ev)
+    for (const ev of events) addPoint(ev)
     cancelAnimationFrame(frame.current)
     frame.current = requestAnimationFrame(() => setLive((l) => l && { ...l, points: points.current.slice() }))
   }
@@ -274,7 +318,10 @@ export function InkPad(props: {
       if (!g.moved) tap(local(e)[1])
       return
     }
-    if (g.kind === 'erase') return setSelected(null)
+    if (g.kind === 'erase') {
+      finishWordErase()
+      return setSelected(null)
+    }
 
     const pts = points.current
     const xs = pts.filter((_, i) => i % 3 === 0)
@@ -307,6 +354,8 @@ export function InkPad(props: {
   function onPointerCancel() {
     gesture.current = null
     setLive(null)
+    fadingRef.current = new Set()
+    setFading(new Set())
   }
 
   /* ---------- Line actions ---------- */
@@ -502,7 +551,23 @@ export function InkPad(props: {
                     }}
                   />
                 ) : (
-                  line?.text && <span className="line-text">{line.text}</span>
+                  line?.text && (
+                    <span className="line-text">
+                      {tokens(line.text).map((tok, w) =>
+                        /\S/.test(tok) ? (
+                          <span
+                            key={w}
+                            data-word={`${line.id}#${w}`}
+                            className={fading.has(`${line.id}#${w}`) ? 'fading' : undefined}
+                          >
+                            {tok}
+                          </span>
+                        ) : (
+                          tok
+                        ),
+                      )}
+                    </span>
+                  )
                 )}
                 {line?.tags.length ? (
                   <span className="tags" style={line.strokes.length && !line.text ? { left: right + 14, position: 'absolute' } : undefined}>
