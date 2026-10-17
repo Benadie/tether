@@ -1,6 +1,6 @@
 import { addDays, at, isoDate, startOfDay, workWeekStart } from '../lib/dates'
 import { uid } from '../lib/id'
-import type { AppState, CalEvent, Clerk, NoteLine, NotePage, ReviewNote, Task } from './types'
+import type { AppState, CalEvent, Clerk, NoteLine, NotePage, Task } from './types'
 
 /** Demo data for an audit & accounting practice, laid out around today's date.
  *  Client names are made up. Clear it from Settings. */
@@ -71,25 +71,6 @@ export function makeSeed(now = new Date()): AppState {
     clerkTask('Debtors circularisation letters', wk(2), chloe, 'doing', 'Brightwater Foods'),
   ]
 
-  const review = (client: string, text: string, raisedDaysAgo: number, assignee: string | undefined, status: ReviewNote['status'], response?: string): ReviewNote => ({
-    id: uid(),
-    client,
-    text,
-    assignee,
-    raised: isoDate(day(-raisedDaysAgo)),
-    status,
-    response,
-    clearedAt: status !== 'open' ? day(-1).toISOString() : undefined,
-    signedAt: status === 'signed' ? today.toISOString() : undefined,
-  })
-  const reviewNotes: ReviewNote[] = [
-    review('Harlow Logistics', 'Revenue cut-off: extend sample to 25 items either side of year end', 6, aisha, 'open'),
-    review('Harlow Logistics', 'Bank rec: agree reconciling items to post year-end statements', 5, aisha, 'cleared', 'Agreed all 7 items, see B3.2'),
-    review('Harlow Logistics', 'Going concern: need board-approved cash flow forecast', 1, undefined, 'open'),
-    review('Brightwater Foods', 'Payroll: document walkthrough of leave pay calculation', 2, chloe, 'open'),
-    review('Brightwater Foods', 'Lead schedules: cross-reference to working papers', 3, aisha, 'open'),
-    review('Kestrel Retail', 'Stocktake: attach copies of count sheets 1 to 40', 8, ben, 'signed', 'Scanned and attached at D4'),
-  ]
 
   const line = (text: string, tags: NoteLine['tags'] = []): NoteLine => ({ id: uid(), text, strokes: [], tags })
   const page = (title: string, created: Date, lines: NoteLine[], extra: Partial<NotePage> = {}): NotePage => ({
@@ -145,7 +126,6 @@ export function makeSeed(now = new Date()): AppState {
       page('Ideas', day(-11), [line('Shared PBC tracker with clients')]),
     ],
     clerks,
-    reviewNotes,
     settings: { name: '' },
   }
 }

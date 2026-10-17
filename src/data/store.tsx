@@ -4,7 +4,7 @@ import { addDays, addMonths, isoDate, parseIsoDate, startOfWeek } from '../lib/d
 import { uid } from '../lib/id'
 import * as outlook from '../sync/outlook'
 import { makeSeed } from './seed'
-import type { AppState, CalEvent, Clerk, NotePage, Repeat, ReviewNote, ReviewStatus, Settings, Task, WaitingItem } from './types'
+import type { AppState, CalEvent, Clerk, NotePage, Repeat, Settings, Task, WaitingItem } from './types'
 
 // Everything lives on the tablet (IndexedDB), so the app works on its own.
 // Outlook is an optional source that is merged in on sync.
@@ -33,10 +33,6 @@ type Store = {
   addClerk: (c: Omit<Clerk, 'id'>) => Clerk
   updateClerk: (id: string, patch: Partial<Clerk>) => void
   deleteClerk: (id: string) => void
-  addReview: (r: Omit<ReviewNote, 'id' | 'status'>) => ReviewNote
-  updateReview: (id: string, patch: Partial<ReviewNote>) => void
-  setReviewStatus: (id: string, status: ReviewStatus) => void
-  deleteReview: (id: string) => void
   setSettings: (patch: Partial<Settings>) => void
   syncOutlook: () => Promise<void>
   resetDemo: () => void
@@ -52,7 +48,6 @@ const emptyState = (name = ''): AppState => ({
   waiting: [],
   pages: [],
   clerks: [],
-  reviewNotes: [],
   settings: { name },
 })
 
@@ -239,47 +234,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...s,
           clerks: s.clerks.filter((x) => x.id !== id),
           tasks: s.tasks.map((t) => (t.assignee === id ? { ...t, assignee: undefined } : t)),
-          reviewNotes: s.reviewNotes.map((r) => (r.assignee === id ? { ...r, assignee: undefined } : r)),
         }))
       },
 
-      addReview(r) {
-        const note: ReviewNote = { ...r, id: uid(), status: 'open' }
-        update((s) => ({ ...s, reviewNotes: [...s.reviewNotes, note] }))
-        return note
-      },
-
-      updateReview(id, patch) {
-        update((s) => ({ ...s, reviewNotes: s.reviewNotes.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
-      },
-
-      setReviewStatus(id, status) {
-        const now = new Date().toISOString()
-        update((s) => ({
-          ...s,
-          reviewNotes: s.reviewNotes.map((x) =>
-            x.id !== id
-              ? x
-              : {
-                  ...x,
-                  status,
-                  clearedAt: status === 'open' ? undefined : (x.clearedAt ?? now),
-                  signedAt: status === 'signed' ? now : undefined,
-                },
-          ),
-        }))
-      },
-
-      deleteReview(id) {
-        update((s) => ({
-          ...s,
-          reviewNotes: s.reviewNotes.filter((x) => x.id !== id),
-          pages: s.pages.map((p) => ({
-            ...p,
-            lines: p.lines.map((l) => (l.tags.some((t) => t.refId === id) ? { ...l, tags: l.tags.filter((t) => t.refId !== id) } : l)),
-          })),
-        }))
-      },
 
       setSettings(patch) {
         update((s) => ({ ...s, settings: { ...s.settings, ...patch } }))
@@ -330,7 +287,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }, [state, outlookReady, update])
 
-  if (!store) return <div className="loading">LoadingÃ¢â‚¬Â¦</div>
+  if (!store) return <div className="loading">LoadingÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦</div>
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }
 
@@ -345,13 +302,13 @@ function nextDue(due: string | undefined, repeat: Repeat) {
   return isoDate(next)
 }
 
-/** Data saved before clerks/review notes existed gets the demo team so the new screens aren't empty. */
+/** Data saved before clerks existed gets the demo team so the Team board isn't empty. */
 function upgrade(saved: AppState): AppState {
-  if (saved.clerks && saved.reviewNotes) return tidy(saved)
+  if (saved.clerks) return tidy(saved)
   return tidy(addDemoTeam(saved))
 }
 
-/** Tasks/notes pointing at a clerk who no longer exists: drop exact duplicates, otherwise hand them back to you. */
+/** Tasks pointing at a clerk who no longer exists: drop exact duplicates, otherwise hand them back to you. */
 function tidy(s: AppState): AppState {
   const known = new Set(s.clerks.map((c) => c.id))
   const isOrphan = (id?: string) => !!id && !known.has(id)
@@ -362,7 +319,6 @@ function tidy(s: AppState): AppState {
     tasks: s.tasks
       .filter((t) => !(isOrphan(t.assignee) && duplicate(t)))
       .map((t) => (isOrphan(t.assignee) ? { ...t, assignee: undefined, status: undefined } : t)),
-    reviewNotes: s.reviewNotes.map((r) => (isOrphan(r.assignee) ? { ...r, assignee: undefined } : r)),
   }
 }
 
@@ -371,7 +327,6 @@ function addDemoTeam(saved: AppState): AppState {
   return {
     ...saved,
     clerks: saved.clerks ?? demo.clerks,
-    reviewNotes: saved.reviewNotes ?? demo.reviewNotes,
     tasks: [
       // Demo tasks that now repeat (matched by title, so your own tasks are untouched).
       ...saved.tasks.map((t) => {

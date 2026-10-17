@@ -38,24 +38,6 @@ export interface Clerk {
   role?: string
 }
 
-export type ReviewStatus = 'open' | 'cleared' | 'signed'
-
-/** A review point raised on a client file, cleared by a clerk and signed off by you. */
-export interface ReviewNote {
-  id: string
-  client: string
-  text: string
-  /** Clerk id; none means it's yours to clear */
-  assignee?: string
-  /** YYYY-MM-DD */
-  raised: string
-  status: ReviewStatus
-  /** The clerk's answer when clearing it */
-  response?: string
-  clearedAt?: string
-  signedAt?: string
-}
-
 export interface CalEvent {
   id: string
   title: string
@@ -88,7 +70,7 @@ export interface Stroke {
   simulate?: boolean
 }
 
-export type LineTagKind = 'task' | 'calendar' | 'reminder' | 'email' | 'review'
+export type LineTagKind = 'task' | 'calendar' | 'reminder' | 'email'
 
 export interface LineTag {
   kind: LineTagKind
@@ -131,6 +113,5 @@ export interface AppState {
   waiting: WaitingItem[]
   pages: NotePage[]
   clerks: Clerk[]
-  reviewNotes: ReviewNote[]
   settings: Settings
 }

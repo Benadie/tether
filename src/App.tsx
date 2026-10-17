@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, CalendarRange, CheckSquare, ClipboardCheck, Hourglass, LayoutDashboard, NotebookPen, Pencil, Plus, SlidersHorizontal, Table2, Timer, Users } from 'lucide-react'
+import { CalendarDays, CalendarRange, CheckSquare, Hourglass, LayoutDashboard, NotebookPen, Pencil, Plus, SlidersHorizontal, Table2, Timer, Users } from 'lucide-react'
 import { useStore } from './data/store'
 import { TodayScreen } from './screens/TodayScreen'
 import { WeekScreen } from './screens/WeekScreen'
@@ -9,11 +9,10 @@ import { WaitingScreen } from './screens/WaitingScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { DashboardScreen } from './screens/DashboardScreen'
 import { TeamScreen } from './screens/TeamScreen'
-import { ReviewsScreen } from './screens/ReviewsScreen'
 import { EditorProvider, useEditor } from './components/Editor'
 import { UpdateBanner } from './components/UpdateBanner'
 
-export type Screen = 'dashboard' | 'today' | 'week' | 'calendar' | 'notes' | 'waiting' | 'team' | 'reviews' | 'settings'
+export type Screen = 'dashboard' | 'today' | 'week' | 'calendar' | 'notes' | 'waiting' | 'team' | 'settings'
 export type Nav = (screen: Screen, pageId?: string) => void
 
 const NAV = [
@@ -24,7 +23,6 @@ const NAV = [
   { id: 'notes', label: 'Notes', icon: Pencil },
   { id: 'waiting', label: 'Waiting', icon: Hourglass },
   { id: 'team', label: 'Team', icon: Users },
-  { id: 'reviews', label: 'Reviews', icon: ClipboardCheck },
 ] as const
 
 const SYNC_EVERY_MS = 10 * 60_000
@@ -100,7 +98,6 @@ function Shell() {
         {screen === 'notes' && <NotesScreen pageId={pageId} setPageId={setPageId} />}
         {screen === 'waiting' && <WaitingScreen />}
         {screen === 'team' && <TeamScreen go={go} />}
-        {screen === 'reviews' && <ReviewsScreen />}
         {screen === 'settings' && <SettingsScreen />}
       </main>
     </div>
@@ -131,9 +128,6 @@ function AddMenu({ go }: { go: Nav }) {
             </button>
             <button onClick={pick(() => editor.newEvent())}>
               <CalendarDays size={20} /> Event
-            </button>
-            <button onClick={pick(() => editor.newReview())}>
-              <ClipboardCheck size={20} /> Review note
             </button>
             <button onClick={pick(() => editor.newWaiting())}>
               <Timer size={20} /> Waiting on someone

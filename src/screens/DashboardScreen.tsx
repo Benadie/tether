@@ -58,7 +58,6 @@ export function DashboardScreen({ go }: { go: Nav }) {
   }
 
   const teamToReview = state.tasks.filter((t) => t.assignee && !t.done && t.status === 'review').length
-  const openNotes = state.reviewNotes.filter((r) => r.status !== 'signed').length
 
   const tiles = [
     { label: 'Overdue', value: late.length, tone: late.length ? 'red' : '', onClick: () => setFilter('late') },
@@ -66,7 +65,6 @@ export function DashboardScreen({ go }: { go: Nav }) {
     { label: 'Next 7 days', value: week.length, tone: '', onClick: () => setFilter('week') },
     { label: 'Waiting on others', value: waiting.length, tone: '', onClick: () => go('waiting') },
     { label: 'Team work to review', value: teamToReview, tone: teamToReview ? 'accent-text' : '', onClick: () => go('team') },
-    { label: 'Review notes open', value: openNotes, tone: '', onClick: () => go('reviews') },
     { label: 'Done this week', value: doneThisWeek.length, tone: 'done', onClick: () => setFilter('done') },
   ]
 

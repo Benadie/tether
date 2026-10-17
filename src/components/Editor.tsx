@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, type FormEvent, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
 import { useStore } from '../data/store'
-import type { CalEvent, Clerk, Repeat, ReviewNote, Task, TaskStatus, WaitingItem } from '../data/types'
+import type { CalEvent, Clerk, Repeat, Task, TaskStatus, WaitingItem } from '../data/types'
 import { at, hhmm, isoDate, pad, parseIsoDate } from '../lib/dates'
 import { DateInput } from './DateInput'
 
@@ -12,7 +12,6 @@ type Open =
   | { kind: 'event'; event?: CalEvent; date?: string }
   | { kind: 'waiting'; item?: WaitingItem }
   | { kind: 'clerk'; clerk?: Clerk }
-  | { kind: 'review'; note?: ReviewNote; initial?: Partial<ReviewNote>; onCreate?: (note: ReviewNote) => void }
 
 type EditorApi = {
   editTask: (task: Task) => void
@@ -23,8 +22,6 @@ type EditorApi = {
   newWaiting: () => void
   editClerk: (clerk: Clerk) => void
   newClerk: () => void
-  editReview: (note: ReviewNote) => void
-  newReview: (initial?: Partial<ReviewNote>, onCreate?: (note: ReviewNote) => void) => void
 }
 
 export const STATUS_LABEL: Record<TaskStatus, string> = {
@@ -49,8 +46,6 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     newWaiting: () => setOpen({ kind: 'waiting' }),
     editClerk: (clerk) => setOpen({ kind: 'clerk', clerk }),
     newClerk: () => setOpen({ kind: 'clerk' }),
-    editReview: (note) => setOpen({ kind: 'review', note }),
-    newReview: (initial, onCreate) => setOpen({ kind: 'review', initial, onCreate }),
   }
 
   return (
@@ -60,9 +55,6 @@ export function EditorProvider({ children }: { children: ReactNode }) {
       {open?.kind === 'event' && <EventDialog event={open.event} date={open.date} onClose={close} />}
       {open?.kind === 'waiting' && <WaitingDialog item={open.item} onClose={close} />}
       {open?.kind === 'clerk' && <ClerkDialog clerk={open.clerk} onClose={close} />}
-      {open?.kind === 'review' && (
-        <ReviewDialog note={open.note} initial={open.initial} onCreate={open.onCreate} onClose={close} />
-      )}
     </Ctx.Provider>
   )
 }
@@ -312,10 +304,10 @@ function WaitingDialog({ item, onClose }: { item?: WaitingItem; onClose: () => v
   )
 }
 
-/** Free text with suggestions from clients already used in tasks and review notes. */
+/** Free text with suggestions from clients already used in tasks. */
 function ClientInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { state } = useStore()
-  const clients = [...new Set([...state.tasks.map((t) => t.client), ...state.reviewNotes.map((r) => r.client)])]
+  const clients = [...new Set(state.tasks.map((t) => t.client))]
     .filter(Boolean)
     .sort() as string[]
   return (
@@ -361,83 +353,6 @@ function ClerkDialog({ clerk, onClose }: { clerk?: Clerk; onClose: () => void })
         <input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Trainee, year 2" />
       </label>
       {clerk && open > 0 && <p className="muted">If you remove {clerk.name}, their {open} open tasks come back to you.</p>}
-    </Shell>
-  )
-}
-
-function ReviewDialog(props: {
-  note?: ReviewNote
-  initial?: Partial<ReviewNote>
-  onCreate?: (note: ReviewNote) => void
-  onClose: () => void
-}) {
-  const store = useStore()
-  const base = props.note ?? props.initial
-  const [client, setClient] = useState(base?.client ?? '')
-  const [text, setText] = useState(base?.text ?? '')
-  const [assignee, setAssignee] = useState(base?.assignee ?? '')
-  const [raised, setRaised] = useState(base?.raised ?? isoDate(new Date()))
-  const [response, setResponse] = useState(base?.response ?? '')
-
-  function save() {
-    if (!text.trim() || !client.trim()) return
-    const fields = {
-      client: client.trim(),
-      text: text.trim(),
-      assignee: assignee || undefined,
-      raised,
-      response: response.trim() || undefined,
-    }
-    if (props.note) store.updateReview(props.note.id, fields)
-    else props.onCreate?.(store.addReview(fields))
-    props.onClose()
-  }
-
-  return (
-    <Shell
-      title={props.note ? 'Review note' : 'New review note'}
-      onClose={props.onClose}
-      onSubmit={save}
-      onDelete={props.note ? () => store.deleteReview(props.note!.id) : undefined}
-      saveLabel={props.note ? 'Save' : 'Add note'}
-    >
-      <div className="row">
-        <label>
-          Client
-          <ClientInput value={client} onChange={setClient} />
-        </label>
-        <label>
-          Raised on
-          <DateInput value={raised} onChange={(v) => v && setRaised(v)} />
-        </label>
-      </div>
-      <label>
-        Review point
-        <textarea
-          autoFocus
-          rows={3}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="e.g. Revenue cut-off: extend sample to 25 items"
-        />
-      </label>
-      <label>
-        Clerk to clear it
-        <select value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-          <option value="">Me</option>
-          {store.state.clerks.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      {props.note && (
-        <label>
-          Clerk's response
-          <input value={response} onChange={(e) => setResponse(e.target.value)} placeholder="e.g. Done, see B3.2" />
-        </label>
-      )}
     </Shell>
   )
 }

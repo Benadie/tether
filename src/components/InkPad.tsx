@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { getStroke } from 'perfect-freehand'
-import { Calendar, Check, ClipboardCheck, Eraser, Highlighter, Keyboard, Link2, Bell, Mail, Pencil, Undo2 } from 'lucide-react'
+import { Calendar, Check, Eraser, Highlighter, Keyboard, Link2, Bell, Mail, Pencil, Undo2 } from 'lucide-react'
 import { useStore } from '../data/store'
 import type { LineTag, NoteLine, NotePage, Stroke } from '../data/types'
 import { at, fmtShort, hhmm, parseIsoDate, sameDay } from '../lib/dates'
@@ -9,7 +9,6 @@ import { recognize } from '../lib/handwriting'
 import * as outlook from '../sync/outlook'
 import { ActionDialog, type ActionKind, type ActionResult } from './ActionDialog'
 import { ColorPicker, INK_SWATCHES } from './ColorPicker'
-import { useEditor } from './Editor'
 
 export const LINE_H = 50
 export const DEFAULT_INK = '#1d3a8a'
@@ -77,7 +76,6 @@ export function InkPad(props: {
 }) {
   const { page, variant } = props
   const store = useStore()
-  const editor = useEditor()
   const ink = store.state.settings.inkColor ?? DEFAULT_INK
   const [tool, setTool] = useState<Tool>('pen')
   const [inkOpen, setInkOpen] = useState(false)
@@ -262,21 +260,6 @@ export function InkPad(props: {
     setDialog({ kind, row: selected, title })
   }
 
-  // Review notes use the shared editor (client + clerk), then tag the line.
-  async function startReview() {
-    if (selected == null) return
-    const row = selected
-    const line = page.lines[row]
-    const text = line.text.trim() || (await recognize(line.strokes)) || ''
-    editor.newReview({ text }, (note) => {
-      const lines = page.lines.slice()
-      const clerk = store.state.clerks.find((c) => c.id === note.assignee)
-      const label = clerk ? `Review: ${clerk.name.split(' ')[0]}` : 'Review note'
-      lines[row] = { ...line, tags: [...line.tags.filter((t) => t.kind !== 'review'), { kind: 'review', label, refId: note.id }] }
-      commit(lines)
-    })
-    setSelected(null)
-  }
 
   async function confirmAction(r: ActionResult) {
     if (!dialog) return
@@ -465,9 +448,6 @@ export function InkPad(props: {
               <button className="chip" onClick={() => startAction('remind')}>
                 Remind me
               </button>
-              <button className="chip" onClick={startReview}>
-                Review note
-              </button>
               <button className="chip" onClick={() => startAction('email')}>
                 Attach to email
               </button>
@@ -496,7 +476,6 @@ function Tag({ tag }: { tag: LineTag }) {
     calendar: <Calendar size={15} />,
     reminder: <Bell size={15} />,
     email: <Mail size={15} />,
-    review: <ClipboardCheck size={15} />,
   }[tag.kind]
   return (
     <span className={`tag tag-${tag.kind}`}>

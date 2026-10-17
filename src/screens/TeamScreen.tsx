@@ -30,7 +30,6 @@ export function TeamScreen({ go }: { go: Nav }) {
   const today = isoDate(new Date())
   const open = state.tasks.filter((t) => t.assignee && !t.done)
   const forReview = open.filter((t) => t.status === 'review').length
-  const openNotes = state.reviewNotes.filter((r) => r.status === 'open')
 
   return (
     <div className="screen">
@@ -56,7 +55,7 @@ export function TeamScreen({ go }: { go: Nav }) {
       {state.clerks.length === 0 ? (
         <section className="card empty-team">
           <h2>No clerks yet</h2>
-          <p className="muted">Add the clerks you manage, then assign them tasks and review notes.</p>
+          <p className="muted">Add the clerks you manage, then assign them tasks.</p>
           <button className="chip primary" onClick={editor.newClerk}>
             <UserPlus size={18} /> Add a clerk
           </button>
@@ -66,7 +65,6 @@ export function TeamScreen({ go }: { go: Nav }) {
           {state.clerks.map((c) => {
             const mine = open.filter((t) => t.assignee === c.id)
             const late = mine.filter((t) => isLate(t, today)).length
-            const notes = openNotes.filter((r) => r.assignee === c.id).length
             return (
               <section key={c.id} className="card column">
                 <button className="column-head" onClick={() => editor.editClerk(c)}>
@@ -81,11 +79,6 @@ export function TeamScreen({ go }: { go: Nav }) {
                 <div className="workload">
                   <span>{mine.length} open</span>
                   {late > 0 && <span className="late">{late} overdue</span>}
-                  {notes > 0 && (
-                    <button className="link small" onClick={() => go('reviews')}>
-                      {notes} review {notes === 1 ? 'note' : 'notes'}
-                    </button>
-                  )}
                 </div>
                 <div className="column-body">
                   {mine.length === 0 && <p className="muted">Nothing assigned.</p>}

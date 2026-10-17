@@ -295,7 +295,7 @@ label input:focus { outline: 2px solid var(--accent); border-color: transparent;
 
 /* ---------- Dashboard ---------- */
 
-.tiles { display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; }
+.tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
 .tile {
   background: var(--card); border-radius: 20px; padding: 16px 20px; text-align: left;
   display: flex; flex-direction: column; gap: 2px;
@@ -366,21 +366,6 @@ label input:focus { outline: 2px solid var(--accent); border-color: transparent;
 .empty-team { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; max-width: 520px; }
 .inline-icon { vertical-align: -2px; margin-left: 4px; }
 .repeat-note { white-space: nowrap; }
-
-/* ---------- Review notes ---------- */
-
-.reviews-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.6fr 1fr; gap: 22px; }
-.reviews-main { display: flex; flex-direction: column; overflow: hidden; }
-.filter-select { height: 38px; border-radius: 999px; border: 0; background: var(--bg); padding: 0 14px; font-size: 15px; font-weight: 500; margin-left: auto; }
-.review-row { display: flex; gap: 12px; align-items: flex-start; padding: 12px 6px; border-radius: 12px; cursor: pointer; }
-.review-row:active { background: var(--accent-soft); }
-.review-row > div:nth-child(2) { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.review-row b { font-weight: 500; font-size: 17px; }
-.review-row.signed b { color: var(--muted); }
-.review-row .avatar { color: #fff; font-size: 13px; }
-.response { font-family: var(--hand); color: var(--pen); font-size: 19px; }
-.review-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-.tag-review { background: var(--event-soft); color: var(--event); }
 
 /* ---------- Form fields ---------- */
 
@@ -457,8 +442,8 @@ main > .screen { flex: 1; min-height: 0; height: auto; }
   .today-grid .inkpad { grid-column: 1 / -1; }
   .daystrip button { width: 50px; }
   .screen-head { flex-wrap: wrap; }
-  .calendar-grid, .notes-grid, .waiting-grid, .dash-grid, .reviews-grid { grid-template-columns: 1fr; overflow-y: auto; }
-  .tiles { grid-template-columns: repeat(4, 1fr); }
+  .calendar-grid, .notes-grid, .waiting-grid, .dash-grid { grid-template-columns: 1fr; overflow-y: auto; }
+  .tiles { grid-template-columns: repeat(3, 1fr); }
   .dash-tasks { min-height: 480px; }
   .month { min-height: 520px; }
 }
