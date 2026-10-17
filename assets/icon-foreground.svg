@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Scaled to stay inside Android's adaptive-icon safe zone (circle masks) -->
+  <g transform="translate(512 512) scale(0.86) translate(-512 -512)">
+  <!-- Note page -->
+  <g transform="rotate(-8 512 512)">
+    <rect x="300" y="250" width="424" height="520" rx="60" fill="#ffffff"/>
+    <rect x="364" y="346" width="230" height="24" rx="12" fill="#f7c9d8"/>
+    <rect x="364" y="418" width="296" height="24" rx="12" fill="#f7c9d8"/>
+    <rect x="364" y="490" width="190" height="24" rx="12" fill="#f7c9d8"/>
+  </g>
+  <!-- Handwritten tick -->
+  <path d="M404 590 L478 664 L640 470" fill="none" stroke="#6e2f4a" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Stylus that just drew it -->
+  <g transform="translate(640 470) rotate(-45)">
+    <polygon points="0,0 52,-25 52,25" fill="#f8d9c4"/>
+    <polygon points="0,0 18,-8.6 18,8.6" fill="#3a2430"/>
+    <rect x="52" y="-25" width="150" height="50" fill="#3a2430"/>
+    <rect x="186" y="-25" width="40" height="50" rx="14" fill="#c2497a"/>
+  </g>
+  </g>
+</svg>
