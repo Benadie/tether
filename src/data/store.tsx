@@ -25,6 +25,7 @@ type Store = {
   deleteWaiting: (id: string) => void
   savePage: (p: NotePage) => void
   setLineOcr: (pageId: string, lineId: string, ocr: string | undefined) => void
+  convertLineInk: (pageId: string, lineId: string, strokeIds: string[], text: string) => void
   newPage: () => NotePage
   deletePage: (id: string) => void
   dailyPage: (day: string) => NotePage
@@ -176,6 +177,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...s,
           pages: s.pages.map((p) =>
             p.id !== pageId ? p : { ...p, lines: p.lines.map((l) => (l.id === lineId ? { ...l, ocr } : l)) },
+          ),
+        }))
+      },
+
+      // Swaps the given pen strokes for typed text. Only those strokes go, so anything written
+      // on the line while it was being read is kept.
+      convertLineInk(pageId, lineId, strokeIds, text) {
+        const ids = new Set(strokeIds)
+        update((s) => ({
+          ...s,
+          pages: s.pages.map((p) =>
+            p.id !== pageId
+              ? p
+              : {
+                  ...p,
+                  updated: new Date().toISOString(),
+                  lines: p.lines.map((l) =>
+                    l.id !== lineId
+                      ? l
+                      : { ...l, text: [l.text.trim(), text].filter(Boolean).join(' '), strokes: l.strokes.filter((st) => !ids.has(st.id)), ocr: undefined },
+                  ),
+                },
           ),
         }))
       },

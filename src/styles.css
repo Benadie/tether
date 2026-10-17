@@ -395,6 +395,10 @@ label select:focus, label textarea:focus { outline: 2px solid var(--accent); bor
 .search:focus-within { box-shadow: 0 0 0 2px var(--accent); }
 .search-hit { font-family: var(--hand); color: var(--pen); font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .saved.notice { color: var(--accent); font-weight: 600; }
+.segmented.compact button { padding: 0 14px; }
+.segmented.choice { background: var(--bg); align-self: flex-start; flex-wrap: wrap; }
+.small-note { font-size: 14px; }
+.round.small-round { width: 44px; height: 44px; background: var(--bg); flex: none; }
 
 /* ---------- Update banner ---------- */
 

@@ -107,6 +107,28 @@ export function SettingsScreen() {
         <section className="card form">
           <h2>Handwriting</h2>
           <HandwritingStatusLine />
+          <div className="color-picker">
+            <span className="color-label">After I write a line</span>
+            <div className="segmented choice">
+              <button
+                className={(settings.handwriting ?? 'convert') === 'convert' ? 'on' : ''}
+                onClick={() => store.setSettings({ handwriting: 'convert' })}
+              >
+                Turn it into typed text
+              </button>
+              <button
+                className={settings.handwriting === 'keep' ? 'on' : ''}
+                onClick={() => store.setSettings({ handwriting: 'keep' })}
+              >
+                Keep my handwriting
+              </button>
+            </div>
+            <span className="muted small-note">
+              {(settings.handwriting ?? 'convert') === 'convert'
+                ? 'A moment after you stop writing, the line becomes typed text. Undo brings your handwriting back.'
+                : 'Your handwriting stays as it is. It is still read, so search and "Make it a task" use your words.'}
+            </span>
+          </div>
         </section>
 
         <section className="card form">

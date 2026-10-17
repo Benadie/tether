@@ -59,6 +59,9 @@ export function useHandwritingStatus() {
   return { status, error: lastError }
 }
 
+/** True where handwriting can be read: the Android app, or a browser with a built-in recognizer. */
+export const handwritingAvailable = () => native || 'createHandwritingRecognizer' in navigator
+
 const xyOnly = (points: number[]) => points.filter((_, i) => i % 3 !== 2)
 
 /** Text for a line's pen strokes, or null if nothing could be read. */

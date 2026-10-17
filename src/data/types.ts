@@ -105,6 +105,8 @@ export interface Settings {
   textColor?: string
   /** Handwriting and typed-note colour */
   inkColor?: string
+  /** What happens after you write a line: turn it into typed text (default) or keep the ink */
+  handwriting?: 'convert' | 'keep'
   outlookAccount?: string
   lastSync?: string
 }

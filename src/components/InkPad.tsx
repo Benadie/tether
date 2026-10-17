@@ -5,7 +5,7 @@ import { useStore } from '../data/store'
 import type { LineTag, NoteLine, NotePage, Stroke } from '../data/types'
 import { at, fmtShort, hhmm, parseIsoDate, sameDay } from '../lib/dates'
 import { uid } from '../lib/id'
-import { recognize } from '../lib/handwriting'
+import { handwritingAvailable, recognize } from '../lib/handwriting'
 import * as outlook from '../sync/outlook'
 import { ActionDialog, type ActionKind, type ActionResult } from './ActionDialog'
 import { ColorPicker, INK_SWATCHES } from './ColorPicker'
@@ -103,20 +103,46 @@ export function InkPad(props: {
 
   useEffect(() => () => ocrTimers.current.forEach((t) => clearTimeout(t)), [])
 
-  /** Reads a line's handwriting about a second after you stop writing on it (for search and quick actions). */
+  // Settings › Handwriting: turn lines into typed text (default) or keep the ink.
+  const convertMode = useRef(true)
+  convertMode.current = (store.state.settings.handwriting ?? 'convert') === 'convert'
+
+  /**
+   * A moment after you stop writing on a line, reads the handwriting and either turns it into
+   * typed text (Undo brings the ink back) or keeps the ink and stores the words for search.
+   */
   function scheduleOcr(lineId: string) {
+    if (!handwritingAvailable()) return
     const timers = ocrTimers.current
     clearTimeout(timers.get(lineId))
     const pageId = page.id
     timers.set(
       lineId,
-      window.setTimeout(async () => {
-        timers.delete(lineId)
-        const line = latest.current.lines.find((l) => l.id === lineId)
-        if (!line) return
-        const text = line.strokes.some((s) => s.tool === 'pen') ? await recognize(line.strokes) : null
-        if ((text ?? undefined) !== line.ocr) store.setLineOcr(pageId, lineId, text ?? undefined)
-      }, 1200),
+      window.setTimeout(
+        async () => {
+          timers.delete(lineId)
+          const line = latest.current.lines.find((l) => l.id === lineId)
+          if (!line) return
+          const pen = line.strokes.filter((s) => s.tool === 'pen')
+          if (!pen.length) {
+            if (line.ocr) store.setLineOcr(pageId, lineId, undefined)
+            return
+          }
+          const text = await recognize(line.strokes)
+          if (convertMode.current) {
+            if (!text) {
+              flash("Couldn't read that line. Try writing a little larger.")
+              return
+            }
+            history.current.push(latest.current.lines)
+            store.convertLineInk(pageId, lineId, pen.map((s) => s.id), text)
+            return
+          }
+          if ((text ?? undefined) !== line.ocr) store.setLineOcr(pageId, lineId, text ?? undefined)
+        },
+        // A little longer when converting, so a pause between words doesn't cut a line in half.
+        convertMode.current ? 1600 : 1200,
+      ),
     )
   }
 
@@ -370,14 +396,19 @@ export function InkPad(props: {
 
   const tools =
     variant === 'card' ? (
-      <div className="segmented">
-        <button className={tool !== 'type' ? 'on' : ''} onClick={() => setTool('pen')}>
-          <Pencil size={18} /> Pen
+      <>
+        <div className="segmented compact">
+          <button className={tool !== 'type' ? 'on' : ''} title="Pen" aria-label="Pen" onClick={() => setTool('pen')}>
+            <Pencil size={18} />
+          </button>
+          <button className={tool === 'type' ? 'on' : ''} title="Type" aria-label="Type" onClick={() => setTool('type')}>
+            <Keyboard size={18} />
+          </button>
+        </div>
+        <button className="round small-round" title="Undo" aria-label="Undo" onClick={undo} disabled={!history.current.length}>
+          <Undo2 size={18} />
         </button>
-        <button className={tool === 'type' ? 'on' : ''} onClick={() => setTool('type')}>
-          <Keyboard size={18} /> Type
-        </button>
-      </div>
+      </>
     ) : (
       <div className="toolbar">
         {(
