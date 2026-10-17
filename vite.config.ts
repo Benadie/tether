@@ -6,7 +6,23 @@ import pkg from './package.json' with { type: 'json' }
 // `npm run dev:tablet` serves over HTTPS on your local network so the tablet can
 // open it (the pen, install-as-app and Outlook sign-in all need a secure origin).
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), ...(mode === 'tablet' ? [basicSsl()] : [])],
+  plugins: [
+    react(),
+    ...(mode === 'tablet' ? [basicSsl()] : []),
+    // Lets a tablet on the same Wi-Fi download an APK from `npm run preview` and install it.
+    {
+      name: 'apk-download',
+      configurePreviewServer(server) {
+        server.middlewares.use((req, res, next) => {
+          if (req.url?.split('?')[0].endsWith('.apk')) {
+            res.setHeader('Content-Type', 'application/vnd.android.package-archive')
+            res.setHeader('Content-Disposition', 'attachment; filename="Tether.apk"')
+          }
+          next()
+        })
+      },
+    },
+  ],
   // The version in package.json is the app version (the APK's too); the update check compares against it.
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   // File-change events were being missed on this PC; polling makes reloads reliable.
