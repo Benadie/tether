@@ -107,8 +107,23 @@ export interface Settings {
   inkColor?: string
   /** What happens after you write a line: turn it into typed text (default) or keep the ink */
   handwriting?: 'convert' | 'keep'
+  /** Colour scheme id (see lib/themes.ts) */
+  theme?: string
+  notifications?: NotificationSettings
   outlookAccount?: string
   lastSync?: string
+}
+
+export interface NotificationSettings {
+  enabled: boolean
+  /** Minutes before a task that has a time */
+  taskLead: number
+  /** Minutes before a meeting */
+  eventLead: number
+  /** Morning summary of the day */
+  summary: boolean
+  /** HH:MM */
+  summaryTime: string
 }
 
 export interface AppState {

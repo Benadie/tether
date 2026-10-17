@@ -3,8 +3,10 @@
   --card: #ffffff;
   --ink: #3a2430;
   /* Secondary text follows whatever text colour is picked in Settings */
-  --muted: color-mix(in srgb, var(--ink) 62%, #fbe8ee);
+  --muted: color-mix(in srgb, var(--ink) 62%, var(--bg));
   --line: #f3dbe3;
+  /* Very light fill for cards inside cards (follows the theme) */
+  --tint: #fff5f8;
   --dark: #6e2f4a;
   --accent: #c2497a;
   --accent-soft: #fcdde8;
@@ -101,7 +103,7 @@ main { min-width: 0; overflow: hidden; }
 
 .check {
   flex: none; width: 30px; height: 30px; border-radius: 50%;
-  border: 2px solid #8a6b78; display: grid; place-items: center; background: transparent;
+  border: 2px solid var(--muted); display: grid; place-items: center; background: transparent;
 }
 .check.late { border-color: var(--red); }
 .check.done { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -199,7 +201,7 @@ input.line-text { flex: 1; border: 0; background: transparent; padding: 0; heigh
   display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px;
   background: #fff; font-size: 15px; font-weight: 500; white-space: nowrap;
 }
-.tag-task { background: var(--accent-soft); color: #9c2f5e; }
+.tag-task { background: var(--accent-soft); color: var(--dark); }
 .tag-calendar { background: var(--event-soft); color: var(--event); }
 .tag-reminder { background: #fff2d6; color: #8a5a00; }
 .tag-email { background: #efe8fb; color: #5a3aa0; }
@@ -211,7 +213,7 @@ input.line-text { flex: 1; border: 0; background: transparent; padding: 0; heigh
 
 /* ---------- Dialog ---------- */
 
-.scrim { position: fixed; inset: 0; background: rgba(58, 36, 48, 0.35); display: grid; place-items: center; z-index: 10; }
+.scrim { position: fixed; inset: 0; background: color-mix(in srgb, var(--ink) 35%, transparent); display: grid; place-items: center; z-index: 10; }
 .dialog { background: #fff; border-radius: var(--radius); padding: 28px; width: min(560px, 92vw); display: flex; flex-direction: column; gap: 16px; }
 .dialog h2 { font-size: 26px; }
 label { display: flex; flex-direction: column; gap: 6px; font-size: 15px; color: var(--muted); flex: 1; }
@@ -238,7 +240,7 @@ label input:focus { outline: 2px solid var(--accent); border-color: transparent;
 .week-todo { padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .gutter-label { font-size: 15px; color: var(--muted); padding-top: 12px; }
 .todo-cell { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.pill { display: flex; align-items: center; gap: 10px; background: #fdeef3; border-radius: 12px; padding: 8px 10px; font-size: 16px; font-weight: 500; min-width: 0; }
+.pill { display: flex; align-items: center; gap: 10px; background: color-mix(in srgb, var(--accent-soft) 70%, #fff); border-radius: 12px; padding: 8px 10px; font-size: 16px; font-weight: 500; min-width: 0; }
 .pill span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pill.late { background: var(--red-soft); color: var(--red); }
 .pill .check { width: 24px; height: 24px; }
@@ -247,7 +249,7 @@ label input:focus { outline: 2px solid var(--accent); border-color: transparent;
 .gutter span { position: absolute; top: 8px; font-size: 15px; color: var(--muted); transform: translateY(0); }
 .gutter span { margin-top: 0; }
 .week-col { position: relative; }
-.week-col.today { background: #fff5f8; }
+.week-col.today { background: var(--tint); }
 .hour-line { position: absolute; left: -6px; right: -6px; border-top: 1px solid var(--line); }
 .week-col .block { left: 4px; right: 4px; padding: 5px 10px; }
 .week-col .block b { font-size: 16px; }
@@ -263,15 +265,15 @@ label input:focus { outline: 2px solid var(--accent); border-color: transparent;
 .month-cells { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; min-height: 0; }
 .cell {
   border-radius: 14px; padding: 6px 8px; display: flex; flex-direction: column; align-items: stretch; gap: 3px;
-  text-align: left; overflow: hidden; min-height: 0; background: #fff5f8;
+  text-align: left; overflow: hidden; min-height: 0; background: var(--tint);
 }
 .cell b { font-size: 17px; font-weight: 600; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; margin-left: -4px; }
-.cell.other { background: transparent; color: #c4a5b2; }
+.cell.other { background: transparent; color: color-mix(in srgb, var(--ink) 35%, #fff); }
 .cell.today b { background: var(--dark); color: #fff; }
 .cell.on { box-shadow: 0 0 0 2.5px var(--accent) inset; }
 .mini { font-size: 13px; padding: 2px 6px; border-radius: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mini.event { background: var(--event-soft); color: var(--event); }
-.mini.task { background: var(--accent-soft); color: #9c2f5e; }
+.mini.task { background: var(--accent-soft); color: var(--dark); }
 .cell small { font-size: 12px; }
 .agenda { border-radius: 14px; padding: 10px 14px; margin-bottom: 8px; display: flex; flex-direction: column; }
 .agenda.event { background: var(--event-soft); }
@@ -357,7 +359,7 @@ label input:focus { outline: 2px solid var(--accent); border-color: transparent;
 .status-group h3.needs-you { color: var(--accent); }
 .team-card {
   display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: 14px; margin-bottom: 8px;
-  background: #fdf6f8; cursor: pointer;
+  background: var(--tint); cursor: pointer;
 }
 .team-card.status-review { background: var(--accent-soft); }
 .team-card > div { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
@@ -398,6 +400,19 @@ label select:focus, label textarea:focus { outline: 2px solid var(--accent); bor
 .segmented.compact button { padding: 0 14px; }
 /* Typed words under the eraser fade out, then go when the pen lifts */
 .line-text .fading { opacity: 0.2; text-decoration: line-through; }
+/* On/off switch: a checkbox inside a label row */
+.switch-row { flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; font-size: 17px; color: var(--ink); flex: 1 1 260px; }
+.switch-row input[type='checkbox'] {
+  appearance: none; -webkit-appearance: none; width: 52px; height: 30px; border-radius: 999px; background: var(--line);
+  position: relative; cursor: pointer; flex: none; border: 0; padding: 0; transition: background 0.15s;
+}
+.switch-row input[type='checkbox']::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.15s;
+}
+.switch-row input[type='checkbox']:checked { background: var(--accent); }
+.switch-row input[type='checkbox']:checked::after { transform: translateX(22px); }
+.restore-box { background: var(--tint); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
 .segmented.choice { background: var(--bg); align-self: flex-start; flex-wrap: wrap; }
 .small-note { font-size: 14px; }
 .round.small-round { width: 44px; height: 44px; background: var(--bg); flex: none; }
@@ -418,12 +433,12 @@ main > .screen { flex: 1; min-height: 0; height: auto; }
 .add-menu { position: relative; }
 .add-btn {
   width: 52px; height: 52px; border-radius: 50%; background: var(--accent); color: #fff;
-  display: grid; place-items: center; box-shadow: 0 4px 12px rgba(194, 73, 122, 0.35);
+  display: grid; place-items: center; box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 .menu-scrim { position: fixed; inset: 0; z-index: 19; }
 .menu {
   position: absolute; left: 64px; top: 0; z-index: 20; background: #fff; border-radius: 18px; padding: 8px;
-  box-shadow: 0 10px 30px rgba(58, 36, 48, 0.18); display: flex; flex-direction: column; min-width: 240px;
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--ink) 18%, transparent); display: flex; flex-direction: column; min-width: 240px;
 }
 .menu button { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 12px; font-size: 18px; font-weight: 500; text-align: left; }
 .menu button:hover, .menu button:active { background: var(--accent-soft); }
@@ -440,8 +455,17 @@ main > .screen { flex: 1; min-height: 0; height: auto; }
 }
 .ink-popover {
   position: absolute; right: 0; top: 52px; z-index: 20; background: #fff; border-radius: 18px; padding: 16px;
-  box-shadow: 0 10px 30px rgba(58, 36, 48, 0.18); width: 290px;
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--ink) 18%, transparent); width: 290px;
 }
+
+/* ---------- Theme chooser ---------- */
+
+.themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.theme-card { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; padding: 14px; border-radius: 16px; text-align: left; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06) inset; }
+.theme-card.on { box-shadow: 0 0 0 3px var(--accent); }
+.theme-card b { font-size: 15px; font-weight: 600; }
+.theme-preview { display: flex; gap: 5px; }
+.theme-preview i { width: 20px; height: 20px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08); }
 
 /* ---------- Colour picker ---------- */
 

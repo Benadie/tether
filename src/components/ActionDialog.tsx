@@ -30,17 +30,21 @@ export function ActionDialog(props: {
   kind: ActionKind
   initialTitle: string
   initialDate?: string
+  /** HH:MM, e.g. from a time written in the note */
+  initialTime?: string
   onCancel: () => void
   onConfirm: (r: ActionResult) => void
 }) {
   const { kind } = props
   const inAnHour = new Date(Date.now() + 3_600_000)
   inAnHour.setMinutes(inAnHour.getMinutes() < 30 ? 0 : 30)
+  const start = props.initialTime ?? (kind === 'task' ? '' : kind === 'calendar' ? '10:00' : kind === 'remind' && props.initialDate ? '09:00' : hhmm(inAnHour))
+  const [sh, sm] = (start || '10:00').split(':').map(Number)
   const [r, setR] = useState<ActionResult>({
     title: props.initialTitle,
     date: props.initialDate ?? isoDate(kind === 'calendar' ? addDays(new Date(), 1) : new Date()),
-    time: kind === 'task' ? '' : kind === 'calendar' ? '10:00' : hhmm(inAnHour),
-    end: '11:00',
+    time: start,
+    end: `${String(Math.min(23, sh + 1)).padStart(2, '0')}:${String(sm).padStart(2, '0')}`,
     to: '',
   })
   const set = (patch: Partial<ActionResult>) => setR({ ...r, ...patch })

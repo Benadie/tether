@@ -6,6 +6,7 @@ import type { LineTag, NoteLine, NotePage, Stroke } from '../data/types'
 import { at, fmtShort, hhmm, parseIsoDate, sameDay } from '../lib/dates'
 import { uid } from '../lib/id'
 import { handwritingAvailable, recognize } from '../lib/handwriting'
+import { findWhen, whenLabel } from '../lib/when'
 import * as outlook from '../sync/outlook'
 import { ActionDialog, type ActionKind, type ActionResult } from './ActionDialog'
 import { ColorPicker, INK_SWATCHES } from './ColorPicker'
@@ -84,7 +85,7 @@ export function InkPad(props: {
   const [inkOpen, setInkOpen] = useState(false)
   const [selected, setSelected] = useState<number | null>(null)
   const [live, setLive] = useState<{ points: number[]; tool: Stroke['tool']; simulate: boolean } | null>(null)
-  const [dialog, setDialog] = useState<{ kind: ActionKind; row: number; title: string } | null>(null)
+  const [dialog, setDialog] = useState<{ kind: ActionKind; row: number; title: string; date?: string; time?: string } | null>(null)
 
   const paperRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -139,6 +140,8 @@ export function InkPad(props: {
             }
             history.current.push(latest.current.lines)
             store.convertLineInk(pageId, lineId, pen.map((s) => s.id), text)
+            const when = findWhen(text)
+            if (when?.date) flash(`Spotted ${whenLabel(when)}. Tap the line to set a reminder.`)
             return
           }
           if ((text ?? undefined) !== line.ocr) store.setLineOcr(pageId, lineId, text ?? undefined)
@@ -363,8 +366,36 @@ export function InkPad(props: {
   async function startAction(kind: ActionKind) {
     if (selected == null) return
     const line = page.lines[selected]
-    const title = line.text.trim() || line.ocr || (await recognize(line.strokes)) || ''
-    setDialog({ kind, row: selected, title })
+    const text = line.text.trim() || line.ocr || (await recognize(line.strokes)) || ''
+    // "Call bank Wed 10:00" -> title "Call bank", day and time filled in.
+    const when = kind === 'email' ? null : findWhen(text)
+    setDialog({ kind, row: selected, title: when?.rest ?? text, date: when?.date, time: when?.time })
+  }
+
+  /** One tap: "Call bank Wed 10:00" becomes a reminder at that time (or a task due that day). */
+  function quickRemind() {
+    if (selected == null) return
+    const row = selected
+    const line = page.lines[row]
+    const when = findWhen(line.text.trim() || line.ocr || '')
+    if (!when?.date) return
+    const noteRef = { pageId: page.id, lineId: line.id }
+    const t = store.addTask({
+      title: when.rest,
+      due: when.date,
+      time: when.time,
+      source: 'note',
+      noteRef,
+      remindAt: when.time ? at(parseIsoDate(when.date), when.time) : undefined,
+    })
+    const tag: LineTag = when.time
+      ? { kind: 'reminder', label: `Remind ${whenLabel(when)}`, refId: t.id }
+      : { kind: 'task', label: `Due ${whenLabel(when)}`, refId: t.id }
+    const lines = page.lines.slice()
+    lines[row] = { ...line, tags: [...line.tags.filter((x) => x.kind !== tag.kind), tag] }
+    commit(lines)
+    setSelected(null)
+    flash(when.time ? `Reminder set for ${whenLabel(when)}` : `Task added for ${whenLabel(when)}`)
   }
 
   /** Replaces a line's handwriting with typed text (undo brings the ink back). */
@@ -439,6 +470,9 @@ export function InkPad(props: {
   }
 
   /* ---------- Render ---------- */
+
+  const selectedLine = selected != null ? page.lines[selected] : undefined
+  const selectedWhen = selectedLine ? findWhen(selectedLine.text.trim() || selectedLine.ocr || '') : null
 
   const updated = new Date(page.updated)
   const saved = sameDay(updated, new Date()) ? hhmm(updated) : `${fmtShort(updated)}, ${hhmm(updated)}`
@@ -591,7 +625,12 @@ export function InkPad(props: {
 
           {selected != null && (
             <div className="line-actions" style={{ top: (selected + 1) * LINE_H + 5 }} onPointerDown={(e) => e.stopPropagation()}>
-              <button className="chip primary" onClick={() => startAction('task')}>
+              {selectedWhen?.date && (
+                <button className="chip primary smart" onClick={quickRemind}>
+                  <Bell size={16} /> {selectedWhen.time ? 'Remind me' : 'Task for'} {whenLabel(selectedWhen)}
+                </button>
+              )}
+              <button className={`chip${selectedWhen?.date ? '' : ' primary'}`} onClick={() => startAction('task')}>
                 Make it a task
               </button>
               {page.lines[selected]?.strokes.some((s) => s.tool === 'pen') && (
@@ -618,7 +657,14 @@ export function InkPad(props: {
       <footer className={`saved${notice ? ' notice' : ''}`}>{notice || `Saved ${saved}`}</footer>
 
       {dialog && (
-        <ActionDialog kind={dialog.kind} initialTitle={dialog.title} onCancel={() => setDialog(null)} onConfirm={confirmAction} />
+        <ActionDialog
+          kind={dialog.kind}
+          initialTitle={dialog.title}
+          initialDate={dialog.date}
+          initialTime={dialog.time}
+          onCancel={() => setDialog(null)}
+          onConfirm={confirmAction}
+        />
       )}
     </section>
   )

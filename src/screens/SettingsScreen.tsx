@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../data/store'
 import { fmtDmy, fmtShort, hhmm } from '../lib/dates'
 import { ScreenHeader } from '../components/common'
@@ -6,6 +6,18 @@ import * as outlook from '../sync/outlook'
 import { APP_VERSION, checkForUpdate, updatesEnabled } from '../lib/updates'
 import { autoBackupIfDue, lastAutoBackup, readBackup, shareBackup, type BackupFile } from '../lib/backup'
 import { prepareHandwriting, useHandwritingStatus } from '../lib/handwriting'
+import {
+  askNotificationPermission,
+  exactTiming,
+  leadLabel,
+  notificationPermission,
+  notificationSettings,
+  openExactTimingSettings,
+  planNotifications,
+  sendTestNotification,
+} from '../lib/notify'
+import type { NotificationSettings } from '../data/types'
+import { THEMES, themeById } from '../lib/themes'
 import { Capacitor } from '@capacitor/core'
 import { ColorPicker, INK_SWATCHES, TEXT_SWATCHES } from '../components/ColorPicker'
 
@@ -41,10 +53,33 @@ export function SettingsScreen() {
         </section>
 
         <section className="card form">
+          <h2>Theme</h2>
+          <div className="themes">
+            {THEMES.map((t) => (
+              <button
+                key={t.id}
+                className={`theme-card${themeById(settings.theme).id === t.id ? ' on' : ''}`}
+                style={{ background: t.bg }}
+                onClick={() => store.setSettings({ theme: t.id })}
+              >
+                <span className="theme-preview">
+                  <i style={{ background: t.accent }} />
+                  <i style={{ background: t.dark }} />
+                  <i style={{ background: t.event }} />
+                  <i style={{ background: '#fff' }} />
+                </span>
+                <b style={{ color: t.ink }}>{t.name}</b>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="card form">
           <h2>Colours</h2>
           <ColorPicker
             label="App text"
-            swatches={TEXT_SWATCHES}
+            // The theme's own text colour is the default (first) swatch.
+            swatches={[themeById(settings.theme).ink, ...TEXT_SWATCHES.filter((c) => c !== themeById(settings.theme).ink)]}
             value={settings.textColor}
             onChange={(c) => store.setSettings({ textColor: c })}
           />
@@ -57,6 +92,8 @@ export function SettingsScreen() {
           <p className="handwriting-preview">Preview: Mgmt letter, 3 findings</p>
           <p className="muted">New pen strokes use the ink colour; what you've already written keeps its colour.</p>
         </section>
+
+        <NotificationsCard />
 
         <section className="card form">
           <h2>Outlook</h2>
@@ -274,5 +311,126 @@ function HandwritingStatusLine() {
         Try again
       </button>
     </>
+  )
+}
+
+const LEADS = [0, 5, 10, 15, 30, 60, 120, 1440]
+
+function NotificationsCard() {
+  const store = useStore()
+  const cfg = notificationSettings(store.state)
+  const set = (patch: Partial<NotificationSettings>) => store.setSettings({ notifications: { ...cfg, ...patch } })
+  const [permission, setPermission] = useState<'granted' | 'denied' | 'prompt' | ''>('')
+  const [exact, setExact] = useState<boolean | null>(null)
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    const check = () => {
+      notificationPermission().then(setPermission).catch(() => setPermission('denied'))
+      exactTiming().then(setExact)
+    }
+    check()
+    // Coming back from Android's settings screen.
+    window.addEventListener('focus', check)
+    document.addEventListener('visibilitychange', check)
+    return () => {
+      window.removeEventListener('focus', check)
+      document.removeEventListener('visibilitychange', check)
+    }
+  }, [])
+
+  const upcoming = planNotifications(store.state).slice(0, 3)
+
+  return (
+    <section className="card form">
+      <h2>Notifications</h2>
+      <label className="switch-row">
+        <span>Notifications</span>
+        <input type="checkbox" checked={cfg.enabled} onChange={(e) => set({ enabled: e.target.checked })} />
+      </label>
+
+      {cfg.enabled && permission && permission !== 'granted' && (
+        <div className="restore-box">
+          <p>{permission === 'denied' ? 'Notifications are turned off for Tether in the tablet settings.' : 'Tether needs your permission to show notifications.'}</p>
+          <button
+            className="chip primary"
+            onClick={async () => setPermission((await askNotificationPermission()) ? 'granted' : await notificationPermission())}
+          >
+            Allow notifications
+          </button>
+          {permission === 'denied' && <p className="muted small-note">If nothing happens: tablet Settings › Apps › Tether › Notifications › Allow.</p>}
+        </div>
+      )}
+
+      {cfg.enabled && (
+        <>
+          <div className="row">
+            <label>
+              Tasks with a time
+              <select value={cfg.taskLead} onChange={(e) => set({ taskLead: Number(e.target.value) })}>
+                {LEADS.map((m) => (
+                  <option key={m} value={m}>
+                    {leadLabel(m)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Meetings
+              <select value={cfg.eventLead} onChange={(e) => set({ eventLead: Number(e.target.value) })}>
+                {LEADS.map((m) => (
+                  <option key={m} value={m}>
+                    {leadLabel(m)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="row">
+            <label className="switch-row">
+              <span>Morning summary of my day</span>
+              <input type="checkbox" checked={cfg.summary} onChange={(e) => set({ summary: e.target.checked })} />
+            </label>
+            {cfg.summary && (
+              <label>
+                At
+                <input type="time" value={cfg.summaryTime} onChange={(e) => e.target.value && set({ summaryTime: e.target.value })} />
+              </label>
+            )}
+          </div>
+          <p className="muted small-note">"Remind me" reminders always go off at the exact time you set.</p>
+
+          {exact === false && (
+            <div className="restore-box">
+              <p>Reminders may arrive a few minutes late. Allow exact timing so they're on the minute.</p>
+              <button className="chip" onClick={() => openExactTimingSettings()}>
+                Allow exact timing
+              </button>
+            </div>
+          )}
+
+          {upcoming.length > 0 && (
+            <div>
+              <span className="color-label">Coming up</span>
+              {upcoming.map((p) => (
+                <p key={p.id} className="small-note">
+                  {fmtShort(p.at)}, {hhmm(p.at)}: <b>{p.title}</b> {p.body && `· ${p.body}`}
+                </p>
+              ))}
+            </div>
+          )}
+
+          <div className="row">
+            <button
+              className="chip"
+              onClick={async () => setMsg((await sendTestNotification()) ? 'A test notification will appear in 5 seconds.' : "Notifications aren't allowed yet.")}
+            >
+              Send a test notification
+            </button>
+          </div>
+          {msg && <p className="muted small-note">{msg}</p>}
+        </>
+      )}
+    </section>
   )
 }
