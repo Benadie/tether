@@ -83,6 +83,8 @@ export interface NoteLine {
   text: string
   strokes: Stroke[]
   tags: LineTag[]
+  /** What the handwriting on this line reads as (filled in automatically, used for search) */
+  ocr?: string
 }
 
 export interface NotePage {

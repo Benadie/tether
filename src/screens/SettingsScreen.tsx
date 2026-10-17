@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useStore } from '../data/store'
-import { fmtShort, hhmm } from '../lib/dates'
+import { fmtDmy, fmtShort, hhmm } from '../lib/dates'
 import { ScreenHeader } from '../components/common'
 import * as outlook from '../sync/outlook'
 import { APP_VERSION, checkForUpdate, updatesEnabled } from '../lib/updates'
+import { autoBackupIfDue, lastAutoBackup, readBackup, shareBackup, type BackupFile } from '../lib/backup'
+import { prepareHandwriting, useHandwritingStatus } from '../lib/handwriting'
+import { Capacitor } from '@capacitor/core'
 import { ColorPicker, INK_SWATCHES, TEXT_SWATCHES } from '../components/ColorPicker'
 
 export function SettingsScreen() {
@@ -71,7 +74,7 @@ export function SettingsScreen() {
               </p>
               <div className="row">
                 <button className="chip primary" disabled={busy} onClick={() => run(store.syncOutlook)}>
-                  {busy ? 'Syncingâ€¦' : 'Sync now'}
+                  {busy ? 'Syncing…' : 'Sync now'}
                 </button>
                 <button className="chip" onClick={() => run(outlook.signOut)}>
                   Disconnect
@@ -99,6 +102,13 @@ export function SettingsScreen() {
           </div>
         </section>
 
+        <BackupCard />
+
+        <section className="card form">
+          <h2>Handwriting</h2>
+          <HandwritingStatusLine />
+        </section>
+
         <section className="card form">
           <h2>App version</h2>
           <p>
@@ -108,9 +118,9 @@ export function SettingsScreen() {
             <>
               <button
                 className="chip"
-                disabled={updateMsg === 'Checkingâ€¦'}
+                disabled={updateMsg === 'Checking…'}
                 onClick={async () => {
-                  setUpdateMsg('Checkingâ€¦')
+                  setUpdateMsg('Checking…')
                   const u = await checkForUpdate()
                   setUpdateMsg(u ? `Version ${u.version} is available, see the banner at the top.` : 'You have the latest version.')
                   if (u) window.location.reload()
@@ -126,5 +136,121 @@ export function SettingsScreen() {
         </section>
       </div>
     </div>
+  )
+}
+
+function BackupCard() {
+  const store = useStore()
+  const fileInput = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
+  const [pending, setPending] = useState<BackupFile | null>(null)
+  const [armed, setArmed] = useState(false)
+  const last = lastAutoBackup()
+  const native = Capacitor.isNativePlatform()
+
+  async function backUpNow() {
+    setBusy(true)
+    setMessage('')
+    try {
+      await shareBackup(store.state)
+    } catch (e) {
+      // Closing the share sheet without choosing an app also lands here; that's fine.
+      const msg = e instanceof Error ? e.message : String(e)
+      if (!/cancel/i.test(msg)) setMessage(`Backup failed: ${msg}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function pick(file?: File) {
+    setMessage('')
+    setArmed(false)
+    if (!file) return
+    try {
+      setPending(await readBackup(file))
+    } catch (e) {
+      setPending(null)
+      setMessage(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  async function restore() {
+    if (!pending) return
+    if (!armed) return setArmed(true)
+    // Keep a copy of what's on the tablet now, in case the wrong file was picked.
+    await autoBackupIfDue(store.state, true).catch(() => undefined)
+    store.restore(pending.data)
+    const when = new Date(pending.exportedAt)
+    setMessage(`Restored the backup from ${fmtDmy(when)} ${hhmm(when)}.`)
+    setPending(null)
+    setArmed(false)
+  }
+
+  return (
+    <section className="card form">
+      <h2>Backup</h2>
+      {native ? (
+        <p className="muted">
+          A copy is saved on this tablet every day (Documents › Tether, last 14 kept).
+          {last ? ` Last one: ${fmtDmy(new Date(last))} ${hhmm(new Date(last))}.` : ' The first one is made shortly after opening the app.'}
+        </p>
+      ) : (
+        <p className="muted">Download a backup file and keep it somewhere safe.</p>
+      )}
+      <div className="row">
+        <button className="chip primary" disabled={busy} onClick={backUpNow}>
+          {native ? 'Back up now (OneDrive, Drive, email…)' : 'Download backup'}
+        </button>
+        <button className="chip" onClick={() => fileInput.current?.click()}>
+          Restore from a file
+        </button>
+        <input
+          ref={fileInput}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(e) => {
+            pick(e.target.files?.[0])
+            e.target.value = ''
+          }}
+        />
+      </div>
+      {pending && (
+        <div className="restore-box">
+          <p>
+            Backup from <b>{fmtDmy(new Date(pending.exportedAt))} {hhmm(new Date(pending.exportedAt))}</b>:{' '}
+            {pending.data.tasks.length} tasks, {pending.data.pages.length} note pages, {pending.data.events.length} events.
+          </p>
+          <p className="muted">Restoring replaces everything currently in Tether on this tablet.</p>
+          <div className="row">
+            <button className={`chip danger${armed ? ' armed' : ''}`} onClick={restore}>
+              {armed ? 'Tap again to restore' : 'Restore this backup'}
+            </button>
+            <button className="chip" onClick={() => (setPending(null), setArmed(false))}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {message && <p className={message.startsWith('Restored') ? '' : 'late'}>{message}</p>}
+    </section>
+  )
+}
+
+function HandwritingStatusLine() {
+  const { status, error } = useHandwritingStatus()
+  if (status === 'unavailable')
+    return <p className="muted">Handwriting is turned into text in the Android app. In the browser, type or use Gboard's handwriting keyboard.</p>
+  if (status === 'downloading') return <p className="muted">Getting handwriting recognition ready (a one-time ~20 MB download)…</p>
+  if (status === 'ready')
+    return <p>Ready. Your handwriting is read on this tablet (nothing is sent anywhere), so you can search it and turn lines into tasks.</p>
+  return (
+    <>
+      <p className="late">Couldn't get handwriting recognition ready{error ? `: ${error}` : ''}. It needs internet once.</p>
+      <button className="chip" onClick={() => prepareHandwriting()}>
+        Try again
+      </button>
+    </>
   )
 }

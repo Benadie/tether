@@ -1,7 +1,7 @@
 {
   "name": "tether",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,6 +16,8 @@
     "@capacitor/app": "^8.1.2",
     "@capacitor/browser": "^8.0.5",
     "@capacitor/core": "^8.5.3",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/share": "^8.0.3",
     "idb-keyval": "^6.3.0",
     "lucide-react": "^1.59.0",
     "perfect-freehand": "^1.2.3",

@@ -24,6 +24,7 @@ type Store = {
   updateWaiting: (id: string, patch: Partial<WaitingItem>) => void
   deleteWaiting: (id: string) => void
   savePage: (p: NotePage) => void
+  setLineOcr: (pageId: string, lineId: string, ocr: string | undefined) => void
   newPage: () => NotePage
   deletePage: (id: string) => void
   dailyPage: (day: string) => NotePage
@@ -36,6 +37,7 @@ type Store = {
   setSettings: (patch: Partial<Settings>) => void
   syncOutlook: () => Promise<void>
   resetDemo: () => void
+  restore: (data: AppState) => void
   clearAll: () => void
 }
 
@@ -168,6 +170,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })
       },
 
+      // Patches one line only, so it never overwrites ink written while recognition ran.
+      setLineOcr(pageId, lineId, ocr) {
+        update((s) => ({
+          ...s,
+          pages: s.pages.map((p) =>
+            p.id !== pageId ? p : { ...p, lines: p.lines.map((l) => (l.id === lineId ? { ...l, ocr } : l)) },
+          ),
+        }))
+      },
+
       newPage() {
         const now = new Date().toISOString()
         const page: NotePage = { id: uid(), title: 'Untitled page', created: now, updated: now, lines: [] }
@@ -281,13 +293,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setState({ ...makeSeed(), settings: state.settings })
       },
 
+      // Replaces everything with a backup (older backups are brought up to date the same way as saved data).
+      restore(data) {
+        setState(upgrade({ ...emptyState(), ...data }))
+      },
+
       clearAll() {
         setState({ ...emptyState(state.settings.name), settings: state.settings })
       },
     }
   }, [state, outlookReady, update])
 
-  if (!store) return <div className="loading">LoadingÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦</div>
+  if (!store) return <div className="loading">Loading…</div>
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
 }
 

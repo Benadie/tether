@@ -1,5 +1,6 @@
 package app.tether.planner;
 
+import android.os.Bundle;
 import android.view.Window;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -7,6 +8,12 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(HandwritingPlugin.class);
+        super.onCreate(savedInstanceState);
+    }
 
     @Override
     public void onResume() {

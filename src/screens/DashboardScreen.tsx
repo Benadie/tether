@@ -174,7 +174,8 @@ export function DashboardScreen({ go }: { go: Nav }) {
               </button>
             </div>
             {recentPages.map((p) => {
-              const firstLine = p.lines.find((l) => l.text.trim())?.text
+              const first = p.lines.find((l) => l.text.trim() || l.ocr)
+              const firstLine = first?.text.trim() || first?.ocr
               return (
                 <button key={p.id} className="note-row" onClick={() => go('notes', p.id)}>
                   <b>{p.day ? (p.day === today ? 'Today' : fmtShort(parseIsoDate(p.day))) : p.title}</b>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CalendarDays, CalendarRange, CheckSquare, Hourglass, LayoutDashboard, NotebookPen, Pencil, Plus, SlidersHorizontal, Table2, Timer, Users } from 'lucide-react'
 import { useStore } from './data/store'
 import { TodayScreen } from './screens/TodayScreen'
@@ -11,6 +11,8 @@ import { DashboardScreen } from './screens/DashboardScreen'
 import { TeamScreen } from './screens/TeamScreen'
 import { EditorProvider, useEditor } from './components/Editor'
 import { UpdateBanner } from './components/UpdateBanner'
+import { prepareHandwriting } from './lib/handwriting'
+import { autoBackupIfDue } from './lib/backup'
 
 export type Screen = 'dashboard' | 'today' | 'week' | 'calendar' | 'notes' | 'waiting' | 'team' | 'settings'
 export type Nav = (screen: Screen, pageId?: string) => void
@@ -56,6 +58,7 @@ function Shell() {
   }, [store.outlookReady])
 
   useReminders()
+  useBackgroundJobs()
 
   // Colours picked in Settings override the stylesheet defaults.
   const { textColor, inkColor } = store.state.settings
@@ -140,6 +143,24 @@ function AddMenu({ go }: { go: Nav }) {
       )}
     </div>
   )
+}
+
+/** Gets handwriting recognition ready and makes the daily on-tablet backup (Android app only). */
+function useBackgroundJobs() {
+  const { state } = useStore()
+  const latest = useRef(state)
+  latest.current = state
+  useEffect(() => {
+    prepareHandwriting()
+    const backup = () => autoBackupIfDue(latest.current).catch((e) => console.warn('Automatic backup failed', e))
+    // A little after start so it doesn't slow opening the app, then hourly (it only writes once a day).
+    const first = setTimeout(backup, 5000)
+    const hourly = setInterval(backup, 3_600_000)
+    return () => {
+      clearTimeout(first)
+      clearInterval(hourly)
+    }
+  }, [])
 }
 
 /** Shows reminders while the app is open. (Reminders also go to Microsoft To Do when Outlook is linked,

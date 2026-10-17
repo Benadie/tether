@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { getStroke } from 'perfect-freehand'
-import { Calendar, Check, Eraser, Highlighter, Keyboard, Link2, Bell, Mail, Pencil, Undo2 } from 'lucide-react'
+import { Calendar, Check, Eraser, Highlighter, Keyboard, Link2, Bell, Mail, Pencil, Type, Undo2 } from 'lucide-react'
 import { useStore } from '../data/store'
 import type { LineTag, NoteLine, NotePage, Stroke } from '../data/types'
 import { at, fmtShort, hhmm, parseIsoDate, sameDay } from '../lib/dates'
@@ -90,12 +90,40 @@ export function InkPad(props: {
   const frame = useRef(0)
   const working = useRef<NoteLine[]>(page.lines)
   const history = useRef<NoteLine[][]>([])
+  const latest = useRef(page)
+  latest.current = page
+  const ocrTimers = useRef(new Map<string, number>())
+  const [notice, setNotice] = useState('')
 
   // Switching pages resets selection and undo.
   useEffect(() => {
     setSelected(null)
     history.current = []
   }, [page.id])
+
+  useEffect(() => () => ocrTimers.current.forEach((t) => clearTimeout(t)), [])
+
+  /** Reads a line's handwriting about a second after you stop writing on it (for search and quick actions). */
+  function scheduleOcr(lineId: string) {
+    const timers = ocrTimers.current
+    clearTimeout(timers.get(lineId))
+    const pageId = page.id
+    timers.set(
+      lineId,
+      window.setTimeout(async () => {
+        timers.delete(lineId)
+        const line = latest.current.lines.find((l) => l.id === lineId)
+        if (!line) return
+        const text = line.strokes.some((s) => s.tool === 'pen') ? await recognize(line.strokes) : null
+        if ((text ?? undefined) !== line.ocr) store.setLineOcr(pageId, lineId, text ?? undefined)
+      }, 1200),
+    )
+  }
+
+  function flash(message: string) {
+    setNotice(message)
+    window.setTimeout(() => setNotice(''), 3500)
+  }
 
   const rows = Math.max(props.minRows ?? 12, page.lines.length + 4)
   const drawTool: Stroke['tool'] = tool === 'highlighter' ? 'highlighter' : 'pen'
@@ -134,6 +162,7 @@ export function InkPad(props: {
   function eraseAt(x: number, y: number) {
     const row = rowAt(y)
     let changed = false
+    const erased: string[] = []
     const lines = working.current.map((line, i) => {
       if (Math.abs(i - row) > 1) return line
       const ly = y - rowTop(i)
@@ -144,11 +173,13 @@ export function InkPad(props: {
       })
       if (strokes.length === line.strokes.length) return line
       changed = true
+      erased.push(line.id)
       return { ...line, strokes }
     })
     if (changed) {
       working.current = lines
       commit(lines, false)
+      erased.forEach(scheduleOcr)
     }
   }
 
@@ -244,6 +275,7 @@ export function InkPad(props: {
     lines[row] = { ...lines[row], strokes: [...lines[row].strokes, stroke] }
     commit(lines)
     setSelected(null)
+    if (stroke.tool === 'pen') scheduleOcr(lines[row].id)
   }
 
   function onPointerCancel() {
@@ -256,8 +288,29 @@ export function InkPad(props: {
   async function startAction(kind: ActionKind) {
     if (selected == null) return
     const line = page.lines[selected]
-    const title = line.text.trim() || (await recognize(line.strokes)) || ''
+    const title = line.text.trim() || line.ocr || (await recognize(line.strokes)) || ''
     setDialog({ kind, row: selected, title })
+  }
+
+  /** Replaces a line's handwriting with typed text (undo brings the ink back). */
+  async function convertToText() {
+    if (selected == null) return
+    const row = selected
+    const line = page.lines[row]
+    const read = line.ocr || (await recognize(line.strokes))
+    if (!read) {
+      flash("Couldn't read that line. Try writing it a little larger.")
+      return
+    }
+    const lines = page.lines.slice()
+    lines[row] = {
+      ...line,
+      text: [line.text.trim(), read].filter(Boolean).join(' '),
+      strokes: line.strokes.filter((s) => s.tool !== 'pen'),
+      ocr: undefined,
+    }
+    commit(lines)
+    setSelected(null)
   }
 
 
@@ -445,6 +498,11 @@ export function InkPad(props: {
               <button className="chip primary" onClick={() => startAction('task')}>
                 Make it a task
               </button>
+              {page.lines[selected]?.strokes.some((s) => s.tool === 'pen') && (
+                <button className="chip" onClick={convertToText} title={page.lines[selected]?.ocr ? `Reads as: ${page.lines[selected].ocr}` : undefined}>
+                  <Type size={16} /> Convert to text
+                </button>
+              )}
               <button className="chip" onClick={() => startAction('remind')}>
                 Remind me
               </button>
@@ -461,7 +519,7 @@ export function InkPad(props: {
         </div>
       </div>
 
-      <footer className="saved">Saved {saved}</footer>
+      <footer className={`saved${notice ? ' notice' : ''}`}>{notice || `Saved ${saved}`}</footer>
 
       {dialog && (
         <ActionDialog kind={dialog.kind} initialTitle={dialog.title} onCancel={() => setDialog(null)} onConfirm={confirmAction} />

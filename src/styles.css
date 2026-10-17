@@ -384,6 +384,18 @@ label select { height: 52px; }
 label textarea { padding: 12px 14px; resize: vertical; }
 label select:focus, label textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
 
+/* ---------- Note search & notices ---------- */
+
+.search {
+  flex-direction: row; align-items: center; gap: 8px; flex: none; margin: 0 6px 10px; padding: 0 12px;
+  height: 44px; border-radius: 999px; background: var(--bg); color: var(--muted);
+}
+.search input { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; padding: 0; font-size: 17px; outline: none; }
+.search input:focus { outline: none; }
+.search:focus-within { box-shadow: 0 0 0 2px var(--accent); }
+.search-hit { font-family: var(--hand); color: var(--pen); font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.saved.notice { color: var(--accent); font-weight: 600; }
+
 /* ---------- Update banner ---------- */
 
 main { display: flex; flex-direction: column; }
