@@ -1,0 +1,35 @@
+{
+  "name": "tether",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:tablet": "vite --host --mode tablet",
+    "dev:lan": "vite --host --port 5174 --strictPort",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "apk": "powershell -ExecutionPolicy Bypass -File scripts/build-apk.ps1"
+  },
+  "dependencies": {
+    "@azure/msal-browser": "^5.25.1",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/browser": "^8.0.5",
+    "@capacitor/core": "^8.5.3",
+    "idb-keyval": "^6.3.0",
+    "lucide-react": "^1.59.0",
+    "perfect-freehand": "^1.2.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/cli": "^8.5.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  }
+}

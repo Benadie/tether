@@ -1,0 +1,15 @@
+{
+  "name": "Tether",
+  "short_name": "Tether",
+  "description": "Pen-first day planner: notes, tasks and your Outlook calendar in one place.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#fbe8ee",
+  "theme_color": "#fbe8ee",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

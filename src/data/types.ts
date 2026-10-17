@@ -1,0 +1,136 @@
+export type Source = 'local' | 'note' | 'outlook'
+
+export interface Task {
+  id: string
+  title: string
+  /** YYYY-MM-DD; no due date means "someday" */
+  due?: string
+  /** HH:MM; puts the task on the schedule */
+  time?: string
+  done: boolean
+  /** When it was ticked off (ISO) */
+  doneAt?: string
+  /** Who asked for it, e.g. "Manager" */
+  from?: string
+  source: Source
+  /** Outlook message id when the task comes from a flagged email */
+  outlookId?: string
+  noteRef?: { pageId: string; lineId: string }
+  /** ISO timestamp of a reminder */
+  remindAt?: string
+  /** Clerk id when the task is delegated; no assignee means it's yours */
+  assignee?: string
+  /** Progress for delegated work (ticking it off still means done) */
+  status?: TaskStatus
+  /** Client / engagement, e.g. "Harlow Logistics" */
+  client?: string
+  /** Comes back automatically when ticked off */
+  repeat?: Repeat
+}
+
+export type TaskStatus = 'todo' | 'doing' | 'review'
+export type Repeat = 'weekly' | 'monthly' | 'yearly'
+
+export interface Clerk {
+  id: string
+  name: string
+  /** e.g. "Trainee, year 2" */
+  role?: string
+}
+
+export type ReviewStatus = 'open' | 'cleared' | 'signed'
+
+/** A review point raised on a client file, cleared by a clerk and signed off by you. */
+export interface ReviewNote {
+  id: string
+  client: string
+  text: string
+  /** Clerk id; none means it's yours to clear */
+  assignee?: string
+  /** YYYY-MM-DD */
+  raised: string
+  status: ReviewStatus
+  /** The clerk's answer when clearing it */
+  response?: string
+  clearedAt?: string
+  signedAt?: string
+}
+
+export interface CalEvent {
+  id: string
+  title: string
+  start: string // ISO
+  end: string // ISO
+  source: Source
+  outlookId?: string
+}
+
+export interface WaitingItem {
+  id: string
+  title: string
+  who: string
+  /** YYYY-MM-DD the request went out */
+  since: string
+  email?: string
+  outlookId?: string
+  done: boolean
+  nudgedAt?: string
+}
+
+export interface Stroke {
+  id: string
+  tool: 'pen' | 'highlighter'
+  color: string
+  size: number
+  /** Flat [x, y, pressure, x, y, pressure, ...], y relative to the top of its line */
+  points: number[]
+  /** Mouse / finger input has no real pressure, so we simulate it */
+  simulate?: boolean
+}
+
+export type LineTagKind = 'task' | 'calendar' | 'reminder' | 'email' | 'review'
+
+export interface LineTag {
+  kind: LineTagKind
+  label: string
+  refId?: string
+}
+
+export interface NoteLine {
+  id: string
+  text: string
+  strokes: Stroke[]
+  tags: LineTag[]
+}
+
+export interface NotePage {
+  id: string
+  title: string
+  created: string
+  updated: string
+  /** Set for the automatic per-day page (YYYY-MM-DD) */
+  day?: string
+  /** Who the linked email came from, e.g. "HR" */
+  linkedEmail?: string
+  lines: NoteLine[]
+}
+
+export interface Settings {
+  name: string
+  /** App text colour (headings, lists, labels) */
+  textColor?: string
+  /** Handwriting and typed-note colour */
+  inkColor?: string
+  outlookAccount?: string
+  lastSync?: string
+}
+
+export interface AppState {
+  tasks: Task[]
+  events: CalEvent[]
+  waiting: WaitingItem[]
+  pages: NotePage[]
+  clerks: Clerk[]
+  reviewNotes: ReviewNote[]
+  settings: Settings
+}
