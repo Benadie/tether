@@ -25,7 +25,7 @@ type Store = {
   deleteWaiting: (id: string) => void
   savePage: (p: NotePage) => void
   setLineOcr: (pageId: string, lineId: string, ocr: string | undefined) => void
-  convertLineInk: (pageId: string, lineId: string, strokeIds: string[], text: string) => void
+  convertLineInk: (pageId: string, lineId: string, strokeIds: string[], text: string, color: string) => void
   newPage: () => NotePage
   deletePage: (id: string) => void
   dailyPage: (day: string) => NotePage
@@ -183,7 +183,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       // Swaps the given pen strokes for typed text. Only those strokes go, so anything written
       // on the line while it was being read is kept.
-      convertLineInk(pageId, lineId, strokeIds, text) {
+      convertLineInk(pageId, lineId, strokeIds, text, color) {
         const ids = new Set(strokeIds)
         update((s) => ({
           ...s,
@@ -196,7 +196,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   lines: p.lines.map((l) =>
                     l.id !== lineId
                       ? l
-                      : { ...l, text: [l.text.trim(), text].filter(Boolean).join(' '), strokes: l.strokes.filter((st) => !ids.has(st.id)), ocr: undefined },
+                      : {
+                          ...l,
+                          text: [l.text.trim(), text].filter(Boolean).join(' '),
+                          // The text keeps the colour of the ink it came from (a line already started keeps its colour).
+                          color: l.text.trim() ? (l.color ?? color) : color,
+                          strokes: l.strokes.filter((st) => !ids.has(st.id)),
+                          ocr: undefined,
+                        },
                   ),
                 },
           ),
@@ -354,13 +361,24 @@ function tidy(s: AppState): AppState {
   const isOrphan = (id?: string) => !!id && !known.has(id)
   const duplicate = (t: Task) =>
     s.tasks.some((o) => o !== t && !isOrphan(o.assignee) && o.assignee && o.title === t.title && o.client === t.client)
+  // Typed text from before lines remembered their colour: fix it to the pen colour in use now,
+  // so it no longer changes when you pick a different pen.
+  const penNow = s.settings.inkColor ?? DEFAULT_PEN
   return {
     ...s,
     tasks: s.tasks
       .filter((t) => !(isOrphan(t.assignee) && duplicate(t)))
       .map((t) => (isOrphan(t.assignee) ? { ...t, assignee: undefined, status: undefined } : t)),
+    pages: s.pages.map((p) =>
+      p.lines.some((l) => l.text.trim() && !l.color)
+        ? { ...p, lines: p.lines.map((l) => (l.text.trim() && !l.color ? { ...l, color: penNow } : l)) }
+        : p,
+    ),
   }
 }
+
+/** Default pen colour (navy), used when none has been picked */
+export const DEFAULT_PEN = '#1d3a8a'
 
 function addDemoTeam(saved: AppState): AppState {
   const demo = makeSeed()

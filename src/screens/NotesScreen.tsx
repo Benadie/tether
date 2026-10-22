@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Plus, Search, Trash2 } from 'lucide-react'
 import { useStore } from '../data/store'
 import { fmtShort, isoDate, parseIsoDate } from '../lib/dates'
@@ -6,10 +6,16 @@ import { ScreenHeader } from '../components/common'
 import { InkPad } from '../components/InkPad'
 import type { NotePage } from '../data/types'
 
+const UNDO_MS = 8000
+
 export function NotesScreen({ pageId, setPageId }: { pageId?: string; setPageId: (id: string) => void }) {
   const { state, newPage, savePage, deletePage } = useStore()
   const today = isoDate(new Date())
   const [query, setQuery] = useState('')
+  // Deleting asks for a second tap; the page id that is waiting for it.
+  const [armed, setArmed] = useState<string | null>(null)
+  const [deleted, setDeleted] = useState<NotePage | null>(null)
+  const undoTimer = useRef(0)
   const pages = [...state.pages].sort((a, b) => b.updated.localeCompare(a.updated))
 
   // Matches the title, typed text and what the handwriting reads as.
@@ -22,6 +28,36 @@ export function NotesScreen({ pageId, setPageId }: { pageId?: string; setPageId:
       })
     : pages.map((p) => ({ page: p, hit: '' }))
   const page = pages.find((p) => p.id === pageId) ?? shown[0]?.page ?? pages[0]
+
+  useEffect(() => () => clearTimeout(undoTimer.current), [])
+
+  // Disarm when you tap somewhere else.
+  useEffect(() => {
+    if (!armed) return
+    const t = setTimeout(() => setArmed(null), 4000)
+    return () => clearTimeout(t)
+  }, [armed])
+
+  function remove(p: NotePage) {
+    if (armed !== p.id) return setArmed(p.id)
+    setArmed(null)
+    deletePage(p.id)
+    setDeleted(p)
+    clearTimeout(undoTimer.current)
+    undoTimer.current = window.setTimeout(() => setDeleted(null), UNDO_MS)
+    if (p.id === page?.id) {
+      const next = pages.find((x) => x.id !== p.id)
+      if (next) setPageId(next.id)
+    }
+  }
+
+  function undo() {
+    if (!deleted) return
+    savePage(deleted)
+    setPageId(deleted.id)
+    setDeleted(null)
+    clearTimeout(undoTimer.current)
+  }
 
   return (
     <div className="screen">
@@ -50,18 +86,36 @@ export function NotesScreen({ pageId, setPageId }: { pageId?: string; setPageId:
           </label>
           <div className="page-list">
             {shown.map(({ page: p, hit }) => (
-              <button key={p.id} className={`page-item${p.id === page?.id ? ' on' : ''}`} onClick={() => setPageId(p.id)}>
-                <b>{pageTitle(p, today)}</b>
-                {hit ? (
-                  <span className="search-hit">{hit}</span>
-                ) : (
-                  <small>{pageSubtitle(p, state.tasks.filter((t) => t.noteRef?.pageId === p.id).length)}</small>
-                )}
-              </button>
+              <div key={p.id} className={`page-item${p.id === page?.id ? ' on' : ''}`}>
+                <button className="page-open" onClick={() => setPageId(p.id)}>
+                  <b>{pageTitle(p, today)}</b>
+                  {hit ? (
+                    <span className="search-hit">{hit}</span>
+                  ) : (
+                    <small>{pageSubtitle(p, state.tasks.filter((t) => t.noteRef?.pageId === p.id).length)}</small>
+                  )}
+                </button>
+                <button
+                  className={`page-delete${armed === p.id ? ' armed' : ''}`}
+                  aria-label={armed === p.id ? `Tap again to delete ${pageTitle(p, today)}` : `Delete ${pageTitle(p, today)}`}
+                  onClick={() => remove(p)}
+                >
+                  {armed === p.id ? 'Delete?' : <Trash2 size={18} />}
+                </button>
+              </div>
             ))}
             {q && shown.length === 0 && <p className="muted hint">Nothing matches “{query}”.</p>}
           </div>
-          <p className="muted hint">A page linked to an email shows up on that task too.</p>
+          {deleted ? (
+            <div className="undo-bar">
+              <span>“{pageTitle(deleted, today)}” deleted</span>
+              <button className="chip small" onClick={undo}>
+                Undo
+              </button>
+            </div>
+          ) : (
+            <p className="muted hint">A page linked to an email shows up on that task too.</p>
+          )}
         </section>
 
         {page ? (
@@ -85,19 +139,17 @@ export function NotesScreen({ pageId, setPageId }: { pageId?: string; setPageId:
               </>
             }
             extra={
-              !page.day && (
-                <button
-                  className="round ghost"
-                  aria-label="Delete page"
-                  onClick={() => confirm(`Delete "${page.title}"?`) && deletePage(page.id)}
-                >
-                  <Trash2 size={18} />
-                </button>
-              )
+              <button
+                className={`chip danger small${armed === page.id ? ' armed' : ''}`}
+                aria-label="Delete page"
+                onClick={() => remove(page)}
+              >
+                <Trash2 size={16} /> {armed === page.id ? 'Tap again to delete' : 'Delete'}
+              </button>
             }
           />
         ) : (
-          <section className="card empty">No pages yet.</section>
+          <section className="card empty">No pages yet. Tap New page to start one.</section>
         )}
       </div>
     </div>

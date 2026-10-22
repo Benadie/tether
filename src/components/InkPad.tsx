@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { getStroke } from 'perfect-freehand'
-import { Calendar, Check, Eraser, Highlighter, Keyboard, Link2, Bell, Mail, Pencil, Type, Undo2 } from 'lucide-react'
+import { Calendar, Check, Eraser, Highlighter, Keyboard, Link2, Bell, Mail, Pencil, Trash2, Type, Undo2 } from 'lucide-react'
 import { useStore } from '../data/store'
 import type { LineTag, NoteLine, NotePage, Stroke } from '../data/types'
 import { at, fmtShort, hhmm, parseIsoDate, sameDay } from '../lib/dates'
@@ -139,7 +139,7 @@ export function InkPad(props: {
               return
             }
             history.current.push(latest.current.lines)
-            store.convertLineInk(pageId, lineId, pen.map((s) => s.id), text)
+            store.convertLineInk(pageId, lineId, pen.map((s) => s.id), text, pen[0].color)
             const when = findWhen(text)
             if (when?.date) flash(`Spotted ${whenLabel(when)}. Tap the line to set a reminder.`)
             return
@@ -398,6 +398,16 @@ export function InkPad(props: {
     flash(when.time ? `Reminder set for ${whenLabel(when)}` : `Task added for ${whenLabel(when)}`)
   }
 
+  /** Removes the selected line; the lines below move up. Undo brings it back. */
+  function deleteLine() {
+    if (selected == null) return
+    const lines = page.lines.slice()
+    lines.splice(selected, 1)
+    commit(lines)
+    setSelected(null)
+    flash('Line deleted. Tap Undo to bring it back.')
+  }
+
   /** Replaces a line's handwriting with typed text (undo brings the ink back). */
   async function convertToText() {
     if (selected == null) return
@@ -408,10 +418,12 @@ export function InkPad(props: {
       flash("Couldn't read that line. Try writing it a little larger.")
       return
     }
+    const inkColor = line.strokes.find((s) => s.tool === 'pen')?.color ?? ink
     const lines = page.lines.slice()
     lines[row] = {
       ...line,
       text: [line.text.trim(), read].filter(Boolean).join(' '),
+      color: line.text.trim() ? (line.color ?? inkColor) : inkColor,
       strokes: line.strokes.filter((s) => s.tool !== 'pen'),
       ocr: undefined,
     }
@@ -460,7 +472,8 @@ export function InkPad(props: {
 
   function setText(row: number, text: string) {
     const lines = padLines(page.lines, row + 1)
-    lines[row] = { ...lines[row], text }
+    // A line you start typing on takes the pen colour in use now, and keeps it.
+    lines[row] = { ...lines[row], text, color: lines[row].text.trim() ? (lines[row].color ?? ink) : ink }
     // One undo step per line you start typing on, not per keystroke.
     commit(lines, !page.lines[row]?.text)
   }
@@ -477,12 +490,19 @@ export function InkPad(props: {
   const updated = new Date(page.updated)
   const saved = sameDay(updated, new Date()) ? hhmm(updated) : `${fmtShort(updated)}, ${hhmm(updated)}`
 
+  /** Pen button: picks the pen; tapping it again (while it's already the pen) opens the colours. */
+  function pickPen() {
+    if (tool === 'pen') setInkOpen(true)
+    else setTool('pen')
+  }
+
   const tools =
     variant === 'card' ? (
       <>
         <div className="segmented compact">
-          <button className={tool !== 'type' ? 'on' : ''} title="Pen" aria-label="Pen" onClick={() => setTool('pen')}>
+          <button className={`pen-tool${tool !== 'type' ? ' on' : ''}`} title="Pen (tap again for colour)" aria-label="Pen" onClick={() => pickPen()}>
             <Pencil size={18} />
+            <i className="pen-swatch" style={{ background: ink }} />
           </button>
           <button className={tool === 'type' ? 'on' : ''} title="Type" aria-label="Type" onClick={() => setTool('type')}>
             <Keyboard size={18} />
@@ -502,8 +522,15 @@ export function InkPad(props: {
             ['type', <Keyboard size={20} />, 'Type'],
           ] as const
         ).map(([t, icon, label]) => (
-          <button key={t} className={tool === t ? 'on' : ''} title={label} aria-label={label} onClick={() => setTool(t)}>
+          <button
+            key={t}
+            className={`${t === 'pen' ? 'pen-tool' : ''}${tool === t ? ' on' : ''}`}
+            title={t === 'pen' ? 'Pen (tap again for colour)' : label}
+            aria-label={label}
+            onClick={() => (t === 'pen' ? pickPen() : setTool(t))}
+          >
             {icon}
+            {t === 'pen' && <i className="pen-swatch" style={{ background: ink }} />}
           </button>
         ))}
         <button title="Undo" aria-label="Undo" onClick={undo} disabled={!history.current.length}>
@@ -527,7 +554,7 @@ export function InkPad(props: {
           <div className="menu-scrim" onPointerDown={() => setInkOpen(false)} />
           <div className="ink-popover">
             <ColorPicker
-              label="Ink colour"
+              label="Pen colour, for what you write next"
               swatches={INK_SWATCHES}
               value={store.state.settings.inkColor}
               onChange={(c) => store.setSettings({ inkColor: c })}
@@ -576,6 +603,7 @@ export function InkPad(props: {
                   <input
                     data-row={i}
                     className="line-text"
+                    style={{ color: line?.text.trim() ? (line.color ?? DEFAULT_INK) : ink }}
                     value={line?.text ?? ''}
                     onChange={(e) => setText(i, e.target.value)}
                     onKeyDown={(e) => {
@@ -586,7 +614,7 @@ export function InkPad(props: {
                   />
                 ) : (
                   line?.text && (
-                    <span className="line-text">
+                    <span className="line-text" style={{ color: line.color ?? DEFAULT_INK }}>
                       {tokens(line.text).map((tok, w) =>
                         /\S/.test(tok) ? (
                           <span
@@ -649,6 +677,9 @@ export function InkPad(props: {
                   Put on calendar
                 </button>
               )}
+              <button className="chip danger" onClick={deleteLine}>
+                <Trash2 size={16} /> Delete
+              </button>
             </div>
           )}
         </div>

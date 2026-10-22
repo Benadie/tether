@@ -90,7 +90,10 @@ export function SettingsScreen() {
             onChange={(c) => store.setSettings({ inkColor: c })}
           />
           <p className="handwriting-preview">Preview: Mgmt letter, 3 findings</p>
-          <p className="muted">New pen strokes use the ink colour; what you've already written keeps its colour.</p>
+          <p className="muted">
+            Only what you write next uses a new pen colour. Everything already written, handwriting or typed, keeps its
+            own colour. You can also change it from the pen button on any notepad (tap the pen again).
+          </p>
         </section>
 
         <NotificationsCard />

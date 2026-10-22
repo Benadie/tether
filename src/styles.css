@@ -286,9 +286,22 @@ label input:focus { outline: 2px solid var(--accent); border-color: transparent;
 .pages { display: flex; flex-direction: column; padding: 22px 14px; }
 .pages h2 { padding: 0 10px 10px; }
 .page-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
-.page-item { text-align: left; border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; }
+.page-item { border-radius: 16px; display: flex; align-items: center; gap: 4px; padding-right: 6px; }
+.page-open { flex: 1; min-width: 0; text-align: left; padding: 12px 14px; display: flex; flex-direction: column; }
+.page-open small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .page-item b { font-size: 19px; font-weight: 500; }
 .page-item.on { background: var(--accent-soft); }
+.page-delete {
+  flex: none; height: 40px; min-width: 40px; border-radius: 999px; display: grid; place-items: center;
+  color: var(--muted); font-size: 14px; font-weight: 600;
+}
+.page-delete:active { background: var(--red-soft); color: var(--red); }
+.page-delete.armed { background: var(--red); color: #fff; padding: 0 12px; }
+.undo-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 6px 0;
+  padding: 8px 8px 8px 16px; border-radius: 999px; background: var(--dark); color: #fff; font-size: 15px;
+}
+.undo-bar span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hint { font-size: 15px; padding: 10px 10px 0; }
 .empty { display: grid; place-items: center; color: var(--muted); }
 
@@ -398,6 +411,12 @@ label select:focus, label textarea:focus { outline: 2px solid var(--accent); bor
 .search-hit { font-family: var(--hand); color: var(--pen); font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .saved.notice { color: var(--accent); font-weight: 600; }
 .segmented.compact button { padding: 0 14px; }
+/* Current pen colour shown under the pen icon */
+.pen-tool { position: relative; }
+.pen-swatch {
+  position: absolute; left: 50%; bottom: 5px; width: 16px; height: 4px; border-radius: 2px; transform: translateX(-50%);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.7);
+}
 /* Typed words under the eraser fade out, then go when the pen lifts */
 .line-text .fading { opacity: 0.2; text-decoration: line-through; }
 /* On/off switch: a checkbox inside a label row */

@@ -85,6 +85,8 @@ export interface NoteLine {
   tags: LineTag[]
   /** What the handwriting on this line reads as (filled in automatically, used for search) */
   ocr?: string
+  /** Colour of the typed text: the pen colour it was written in, so changing pens later doesn't recolour it */
+  color?: string
 }
 
 export interface NotePage {
