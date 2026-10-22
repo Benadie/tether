@@ -19,7 +19,7 @@ import {
 import type { NotificationSettings } from '../data/types'
 import { THEMES, themeById } from '../lib/themes'
 import { Capacitor } from '@capacitor/core'
-import { ColorPicker, INK_SWATCHES, TEXT_SWATCHES } from '../components/ColorPicker'
+import { ColorPicker, HIGHLIGHT_SWATCHES, INK_SWATCHES, TEXT_SWATCHES } from '../components/ColorPicker'
 
 export function SettingsScreen() {
   const store = useStore()
@@ -88,6 +88,12 @@ export function SettingsScreen() {
             swatches={INK_SWATCHES}
             value={settings.inkColor}
             onChange={(c) => store.setSettings({ inkColor: c })}
+          />
+          <ColorPicker
+            label="Highlighter"
+            swatches={HIGHLIGHT_SWATCHES}
+            value={settings.highlightColor}
+            onChange={(c) => store.setSettings({ highlightColor: c })}
           />
           <p className="handwriting-preview">Preview: Mgmt letter, 3 findings</p>
           <p className="muted">

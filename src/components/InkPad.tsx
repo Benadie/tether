@@ -9,11 +9,13 @@ import { handwritingAvailable, recognize } from '../lib/handwriting'
 import { findWhen, whenLabel } from '../lib/when'
 import * as outlook from '../sync/outlook'
 import { ActionDialog, type ActionKind, type ActionResult } from './ActionDialog'
-import { ColorPicker, INK_SWATCHES } from './ColorPicker'
+import { ColorPicker, HIGHLIGHT_SWATCHES, INK_SWATCHES } from './ColorPicker'
 
 export const LINE_H = 50
-export const DEFAULT_INK = '#1d3a8a'
-const HIGHLIGHT = 'rgba(244, 114, 182, 0.35)'
+export const DEFAULT_INK = '#1d4ed8'
+/** Highlighter strokes are stored as a solid colour and drawn see-through */
+const HIGHLIGHT_ALPHA = 0.38
+export const DEFAULT_HIGHLIGHT = '#f472b6'
 
 type Tool = 'pen' | 'highlighter' | 'eraser' | 'type'
 
@@ -81,8 +83,10 @@ export function InkPad(props: {
   const { page, variant } = props
   const store = useStore()
   const ink = store.state.settings.inkColor ?? DEFAULT_INK
+  const hl = store.state.settings.highlightColor ?? DEFAULT_HIGHLIGHT
   const [tool, setTool] = useState<Tool>('pen')
-  const [inkOpen, setInkOpen] = useState(false)
+  // Which colour list is open: the pen's or the highlighter's.
+  const [picker, setPicker] = useState<'pen' | 'highlighter' | null>(null)
   const [selected, setSelected] = useState<number | null>(null)
   const [live, setLive] = useState<{ points: number[]; tool: Stroke['tool']; simulate: boolean } | null>(null)
   const [dialog, setDialog] = useState<{ kind: ActionKind; row: number; title: string; date?: string; time?: string } | null>(null)
@@ -342,7 +346,7 @@ export function InkPad(props: {
     const stroke: Stroke = {
       id: uid(),
       tool: drawTool,
-      color: drawTool === 'pen' ? ink : HIGHLIGHT,
+      color: drawTool === 'pen' ? ink : hl,
       size: drawTool === 'pen' ? 4.5 : 22,
       points: rel,
       simulate: g.simulate,
@@ -490,11 +494,12 @@ export function InkPad(props: {
   const updated = new Date(page.updated)
   const saved = sameDay(updated, new Date()) ? hhmm(updated) : `${fmtShort(updated)}, ${hhmm(updated)}`
 
-  /** Pen button: picks the pen; tapping it again (while it's already the pen) opens the colours. */
-  function pickPen() {
-    if (tool === 'pen') setInkOpen(true)
-    else setTool('pen')
+  /** Pen / highlighter buttons: the first tap picks the tool, tapping it again opens its colours. */
+  function pickTool(t: 'pen' | 'highlighter') {
+    if (tool === t) setPicker(t)
+    else setTool(t)
   }
+  const pickPen = () => pickTool('pen')
 
   const tools =
     variant === 'card' ? (
@@ -524,13 +529,14 @@ export function InkPad(props: {
         ).map(([t, icon, label]) => (
           <button
             key={t}
-            className={`${t === 'pen' ? 'pen-tool' : ''}${tool === t ? ' on' : ''}`}
-            title={t === 'pen' ? 'Pen (tap again for colour)' : label}
+            className={`${t === 'pen' || t === 'highlighter' ? 'pen-tool' : ''}${tool === t ? ' on' : ''}`}
+            title={t === 'pen' || t === 'highlighter' ? `${label} (tap again for colour)` : label}
             aria-label={label}
-            onClick={() => (t === 'pen' ? pickPen() : setTool(t))}
+            onClick={() => (t === 'pen' || t === 'highlighter' ? pickTool(t) : setTool(t))}
           >
             {icon}
             {t === 'pen' && <i className="pen-swatch" style={{ background: ink }} />}
+            {t === 'highlighter' && <i className="pen-swatch" style={{ background: hl }} />}
           </button>
         ))}
         <button title="Undo" aria-label="Undo" onClick={undo} disabled={!history.current.length}>
@@ -546,19 +552,28 @@ export function InkPad(props: {
         style={{ background: ink }}
         title="Ink colour"
         aria-label="Ink colour"
-        aria-expanded={inkOpen}
-        onClick={() => setInkOpen(!inkOpen)}
+        aria-expanded={picker === 'pen'}
+        onClick={() => setPicker(picker ? null : 'pen')}
       />
-      {inkOpen && (
+      {picker && (
         <>
-          <div className="menu-scrim" onPointerDown={() => setInkOpen(false)} />
+          <div className="menu-scrim" onPointerDown={() => setPicker(null)} />
           <div className="ink-popover">
-            <ColorPicker
-              label="Pen colour, for what you write next"
-              swatches={INK_SWATCHES}
-              value={store.state.settings.inkColor}
-              onChange={(c) => store.setSettings({ inkColor: c })}
-            />
+            {picker === 'pen' ? (
+              <ColorPicker
+                label="Pen colour, for what you write next"
+                swatches={INK_SWATCHES}
+                value={store.state.settings.inkColor}
+                onChange={(c) => store.setSettings({ inkColor: c })}
+              />
+            ) : (
+              <ColorPicker
+                label="Highlighter colour"
+                swatches={HIGHLIGHT_SWATCHES}
+                value={store.state.settings.highlightColor}
+                onChange={(c) => store.setSettings({ highlightColor: c })}
+              />
+            )}
           </div>
         </>
       )}
@@ -595,7 +610,12 @@ export function InkPad(props: {
                     {[...line.strokes]
                       .sort((a) => (a.tool === 'highlighter' ? -1 : 1))
                       .map((s) => (
-                        <path key={s.id} d={strokePath(s.points, s.tool, s.size, !!s.simulate)} fill={s.color} />
+                        <path
+                          key={s.id}
+                          d={strokePath(s.points, s.tool, s.size, !!s.simulate)}
+                          fill={s.color}
+                          fillOpacity={s.tool === 'highlighter' && s.color.startsWith('#') ? HIGHLIGHT_ALPHA : undefined}
+                        />
                       ))}
                   </svg>
                 ) : null}
@@ -646,7 +666,8 @@ export function InkPad(props: {
             <svg className="ink live" width="100%" height="100%">
               <path
                 d={strokePath(live.points, live.tool, live.tool === 'pen' ? 4.5 : 22, live.simulate)}
-                fill={live.tool === 'pen' ? ink : HIGHLIGHT}
+                fill={live.tool === 'pen' ? ink : hl}
+                fillOpacity={live.tool === 'pen' ? undefined : HIGHLIGHT_ALPHA}
               />
             </svg>
           )}

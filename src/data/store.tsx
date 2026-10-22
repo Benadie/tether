@@ -4,7 +4,8 @@ import { addDays, addMonths, isoDate, parseIsoDate, startOfWeek } from '../lib/d
 import { uid } from '../lib/id'
 import * as outlook from '../sync/outlook'
 import { makeSeed } from './seed'
-import type { AppState, CalEvent, Clerk, NotePage, Repeat, Settings, Task, WaitingItem } from './types'
+import { OLD_INK_TO_NEW } from '../components/ColorPicker'
+import type { AppState, CalEvent, Clerk, NoteLine, NotePage, Repeat, Settings, Task, WaitingItem } from './types'
 
 // Everything lives on the tablet (IndexedDB), so the app works on its own.
 // Outlook is an optional source that is merged in on sync.
@@ -361,24 +362,34 @@ function tidy(s: AppState): AppState {
   const isOrphan = (id?: string) => !!id && !known.has(id)
   const duplicate = (t: Task) =>
     s.tasks.some((o) => o !== t && !isOrphan(o.assignee) && o.assignee && o.title === t.title && o.client === t.client)
+  // The old, darker pen colours looked black as typed text: swap them for the brighter versions.
+  const brighter = (c?: string) => (c && OLD_INK_TO_NEW[c.toLowerCase()]) || c
+  const inkColor = brighter(s.settings.inkColor)
   // Typed text from before lines remembered their colour: fix it to the pen colour in use now,
   // so it no longer changes when you pick a different pen.
-  const penNow = s.settings.inkColor ?? DEFAULT_PEN
+  const penNow = inkColor ?? DEFAULT_PEN
+  const fixLine = (l: NoteLine): NoteLine => {
+    const color = l.text.trim() && !l.color ? penNow : brighter(l.color)
+    const strokes = l.strokes.some((st) => st.tool === 'pen' && brighter(st.color) !== st.color)
+      ? l.strokes.map((st) => (st.tool === 'pen' ? { ...st, color: brighter(st.color)! } : st))
+      : l.strokes
+    return color === l.color && strokes === l.strokes ? l : { ...l, color, strokes }
+  }
   return {
     ...s,
+    settings: inkColor === s.settings.inkColor ? s.settings : { ...s.settings, inkColor },
     tasks: s.tasks
       .filter((t) => !(isOrphan(t.assignee) && duplicate(t)))
       .map((t) => (isOrphan(t.assignee) ? { ...t, assignee: undefined, status: undefined } : t)),
-    pages: s.pages.map((p) =>
-      p.lines.some((l) => l.text.trim() && !l.color)
-        ? { ...p, lines: p.lines.map((l) => (l.text.trim() && !l.color ? { ...l, color: penNow } : l)) }
-        : p,
-    ),
+    pages: s.pages.map((p) => {
+      const lines = p.lines.map(fixLine)
+      return lines.some((l, i) => l !== p.lines[i]) ? { ...p, lines } : p
+    }),
   }
 }
 
-/** Default pen colour (navy), used when none has been picked */
-export const DEFAULT_PEN = '#1d3a8a'
+/** Default pen colour (a clear blue), used when none has been picked */
+export const DEFAULT_PEN = '#1d4ed8'
 
 function addDemoTeam(saved: AppState): AppState {
   const demo = makeSeed()

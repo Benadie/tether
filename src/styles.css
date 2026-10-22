@@ -17,7 +17,7 @@
   --paper: #ffffff;
   --paper-line: #f6d3df;
   --paper-sel: #fcd2e0;
-  --pen: #1d3a8a;
+  --pen: #1d4ed8;
   --hand: 'Kalam', 'Segoe Print', cursive;
   --radius: 26px;
   font-family: 'Figtree', system-ui, sans-serif;
@@ -190,7 +190,8 @@ main { min-width: 0; overflow: hidden; }
   display: flex; align-items: center; gap: 12px; padding-top: 4px;
 }
 .line.sel { background: var(--paper-sel); border-radius: 12px; margin: 0 -10px; padding-left: 10px; padding-right: 10px; border-bottom-color: transparent; }
-.line-text { font-family: var(--hand); font-size: 27px; color: var(--pen); white-space: nowrap; }
+/* A light outline in the text's own colour thickens the handwriting font so pen colours show */
+.line-text { font-family: var(--hand); font-size: 27px; color: var(--pen); white-space: nowrap; -webkit-text-stroke: 0.6px currentColor; }
 input.line-text { flex: 1; border: 0; background: transparent; padding: 0; height: 100%; outline: none; }
 .ink { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 .line.sel .ink { left: 10px; }

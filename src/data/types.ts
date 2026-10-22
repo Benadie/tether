@@ -107,6 +107,8 @@ export interface Settings {
   textColor?: string
   /** Handwriting and typed-note colour */
   inkColor?: string
+  /** Highlighter colour (drawn see-through) */
+  highlightColor?: string
   /** What happens after you write a line: turn it into typed text (default) or keep the ink */
   handwriting?: 'convert' | 'keep'
   /** Colour scheme id (see lib/themes.ts) */
