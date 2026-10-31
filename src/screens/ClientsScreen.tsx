@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { Pencil, Plus, Search, Trash2 } from 'lucide-react'
 import { useStore } from '../data/store'
 import type { Client } from '../data/types'
-import { isoDate } from '../lib/dates'
+import { fmtDmy, isoDate, parseIsoDate } from '../lib/dates'
+import { DateInput } from '../components/DateInput'
 import { ScreenHeader } from '../components/common'
 import { useEditor } from '../components/Editor'
 import { TaskRow } from '../components/TaskRow'
@@ -93,7 +94,11 @@ export function ClientsScreen() {
                     <span className="client-name">
                       <b>{c.name}</b>
                       <small>
-                        {[c.code, c.companies.length ? `${c.companies.length} ${c.companies.length === 1 ? 'company' : 'companies'}` : '']
+                        {[
+                          c.code,
+                          c.companies.length ? `${c.companies.length} ${c.companies.length === 1 ? 'company' : 'companies'}` : '',
+                          engagementEnded(c) ? 'Ended' : '',
+                        ]
                           .filter(Boolean)
                           .join(' · ')}
                       </small>
@@ -125,12 +130,31 @@ export function ClientsScreen() {
   )
 }
 
+const engagementEnded = (c: Client) => !!c.engagedTo && c.engagedTo < isoDate(new Date())
+
+/** "Starts in 5 days", "Ends in 45 days" or "Ended on 30/06/2026" */
+function engagementNote(c: Client) {
+  const today = isoDate(new Date())
+  const days = (iso: string) => Math.round((parseIsoDate(iso).getTime() - parseIsoDate(today).getTime()) / 86_400_000)
+  const inDays = (n: number) => (n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`)
+  if (c.engagedFrom && c.engagedFrom > today) return `Starts ${inDays(days(c.engagedFrom))}.`
+  if (!c.engagedTo) return ''
+  if (c.engagedTo < today) return `Engagement ended on ${fmtDmy(parseIsoDate(c.engagedTo))}.`
+  return `Ends ${inDays(days(c.engagedTo))}.`
+}
+
 function ClientPage({ client }: { client: Client }) {
   const store = useStore()
   const editor = useEditor()
   const [newCompany, setNewCompany] = useState('')
   const [showDone, setShowDone] = useState(false)
   const [armed, setArmed] = useState<string | null>(null)
+  // Which notes are open: the whole group (undefined) or one company in it.
+  const [notesFor, setNotesFor] = useState<string | undefined>()
+  const notesCompany = client.companies.find((x) => x.id === notesFor)
+  const page = store.clientPage(client.id, notesCompany?.id)
+  const hasNotes = (companyId?: string) =>
+    store.state.pages.some((p) => p.clientId === client.id && p.companyId === companyId && p.lines.some((l) => l.text || l.strokes.length))
 
   const tasks = store.state.tasks
     .filter((t) => t.clientId === client.id)
@@ -160,6 +184,29 @@ function ClientPage({ client }: { client: Client }) {
         </div>
 
         <div className="client-section">
+          <h3>Engagement dates</h3>
+          <div className="engagement">
+            <label>
+              Engaging from
+              <DateInput
+                value={client.engagedFrom ?? ''}
+                onChange={(v) => store.updateClient(client.id, { engagedFrom: v || undefined })}
+                placeholder="Not set"
+              />
+            </label>
+            <label>
+              Ending on
+              <DateInput
+                value={client.engagedTo ?? ''}
+                onChange={(v) => store.updateClient(client.id, { engagedTo: v || undefined })}
+                placeholder="Not set"
+              />
+            </label>
+          </div>
+          {engagementNote(client) && <p className={`muted small-note${engagementEnded(client) ? ' late-text' : ''}`}>{engagementNote(client)}</p>}
+        </div>
+
+        <div className="client-section">
           <div className="group-head">
             <h3>Tasks and due dates</h3>
             <button className="chip small" onClick={() => editor.newTask({ client: client.name, clientId: client.id })}>
@@ -183,7 +230,14 @@ function ClientPage({ client }: { client: Client }) {
           {client.companies.length === 0 && <p className="muted small-note">A single company. Add the companies if this is a group.</p>}
           {client.companies.map((co) => (
             <div key={co.id} className="company-row">
-              <span className="company-name">{co.name}</span>
+              <button
+                className={`company-name${co.id === notesFor ? ' on' : ''}`}
+                aria-label={`Notes for ${co.name}`}
+                onClick={() => setNotesFor(co.id === notesFor ? undefined : co.id)}
+              >
+                {co.name}
+                {hasNotes(co.id) && <Pencil size={13} className="inline-icon" />}
+              </button>
               <input
                 className="company-note"
                 id={`company-note-${co.id}`}
@@ -226,7 +280,33 @@ function ClientPage({ client }: { client: Client }) {
         </div>
       </section>
 
-      <InkPad variant="card" page={store.clientPage(client.id)} heading={<h2>Notes</h2>} minRows={10} />
+      <InkPad
+        key={page.id}
+        variant="card"
+        page={page}
+        minRows={10}
+        heading={
+          client.companies.length ? (
+            <select
+              className="notes-for"
+              id="notes-for"
+              aria-label="Notes for"
+              value={notesFor ?? ''}
+              onChange={(e) => setNotesFor(e.target.value || undefined)}
+            >
+              <option value="">Whole group</option>
+              {client.companies.map((co) => (
+                <option key={co.id} value={co.id}>
+                  {co.name}
+                  {hasNotes(co.id) ? ' ✎' : ''}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <h2>Notes</h2>
+          )
+        }
+      />
     </div>
   )
 }

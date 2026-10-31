@@ -378,7 +378,8 @@ export function InkPad(props: {
   /** Tasks made on a client's notes page belong to that client. */
   function clientLink() {
     const client = page.clientId ? store.state.clients.find((c) => c.id === page.clientId) : undefined
-    return client ? { clientId: client.id, client: client.name } : {}
+    const company = client?.companies.find((x) => x.id === page.companyId)
+    return client ? { clientId: client.id, client: client.name, company: company?.name } : {}
   }
 
   /** One tap: "Call bank Wed 10:00" becomes a reminder at that time (or a task due that day). */

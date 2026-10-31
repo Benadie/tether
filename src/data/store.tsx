@@ -38,13 +38,13 @@ type Store = {
   /** Moves a box on: blank → ✓ → ✗ → n/a → blank */
   cyclePayrollMark: (clientId: string, month: string, item: PayrollItem) => void
   addClient: (c: { name: string; code?: string }) => Client
-  updateClient: (id: string, patch: { name?: string; code?: string }) => void
+  updateClient: (id: string, patch: Partial<Pick<Client, 'name' | 'code' | 'engagedFrom' | 'engagedTo'>>) => void
   removeClient: (id: string) => void
   addCompany: (clientId: string, name: string) => void
   updateCompany: (clientId: string, companyId: string, patch: Partial<Company>) => void
   removeCompany: (clientId: string, companyId: string) => void
-  /** The client's notes page (not stored until something is written on it) */
-  clientPage: (clientId: string) => NotePage
+  /** The notes page for a client, or one company in its group (not stored until something is written on it) */
+  clientPage: (clientId: string, companyId?: string) => NotePage
   setSettings: (patch: Partial<Settings>) => void
   resetDemo: () => void
   restore: (data: AppState) => void
@@ -313,7 +313,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...s,
             clients: s.clients.map((c) => (c.id === id ? { ...c, ...patch } : c)),
             tasks: renamed ? s.tasks.map((t) => (t.clientId === id ? { ...t, client: patch.name } : t)) : s.tasks,
-            pages: renamed ? s.pages.map((p) => (p.clientId === id ? { ...p, title: `${patch.name} notes` } : p)) : s.pages,
+            pages: renamed
+              ? s.pages.map((p) => (p.clientId === id && !p.companyId ? { ...p, title: `${patch.name} notes` } : p))
+              : s.pages,
           }
         })
       },
@@ -346,13 +348,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }))
       },
 
-      clientPage(clientId) {
+      clientPage(clientId, companyId) {
         const client = state.clients.find((c) => c.id === clientId)
+        const company = companyId ? client?.companies.find((x) => x.id === companyId) : undefined
         return (
-          state.pages.find((p) => p.clientId === clientId) ?? {
-            id: `client-${clientId}`,
-            title: `${client?.name ?? 'Client'} notes`,
+          state.pages.find((p) => p.clientId === clientId && p.companyId === companyId) ?? {
+            id: companyId ? `client-${clientId}-${companyId}` : `client-${clientId}`,
+            title: `${company?.name ?? client?.name ?? 'Client'} notes`,
             clientId,
+            companyId,
             created: new Date().toISOString(),
             updated: new Date().toISOString(),
             lines: [],

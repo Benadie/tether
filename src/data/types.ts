@@ -39,6 +39,10 @@ export interface Client {
   /** The companies in the group (empty for a single company) */
   companies: Company[]
   created: string
+  /** When the engagement starts (YYYY-MM-DD) */
+  engagedFrom?: string
+  /** When the engagement ends (YYYY-MM-DD) */
+  engagedTo?: string
 }
 
 export interface Company {
@@ -148,6 +152,8 @@ export interface NotePage {
   linkedEmail?: string
   /** Set for a client's notes page (Clients tab) */
   clientId?: string
+  /** Set when the page is for one company in the client's group */
+  companyId?: string
   lines: NoteLine[]
 }
 
