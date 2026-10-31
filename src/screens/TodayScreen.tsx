@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { isMine, useStore } from '../data/store'
 import { addDays, fmtDow, fmtLong, greeting, hourOf, isoDate, parseIsoDate, sameDay, startOfWeek } from '../lib/dates'
 import { Checkbox, DAY_START, HOURS, ScreenHeader, eventSlot, eventTime, taskSlot } from '../components/common'
-import { TaskRow } from '../components/TaskRow'
+import { ReviewRow, TaskRow, readyForReview } from '../components/TaskRow'
 import { useEditor } from '../components/Editor'
 import { InkPad } from '../components/InkPad'
 import type { Nav } from '../App'
@@ -27,10 +27,14 @@ export function TodayScreen({ go }: { go: Nav }) {
   const anyTime = dayTasks.filter((t) => !t.time)
   const events = state.events.filter((e) => sameDay(new Date(e.start), viewing))
 
-  const things = dueToday.length + late.length
+  // Clerk work you've been asked to review counts as your to-do too.
+  const toReview = readyForReview(state.tasks)
+
+  const things = dueToday.length + late.length + toReview.length
   const subtitle =
     `${fmtLong(now)}. ${things} ${things === 1 ? 'thing' : 'things'} to do today` +
-    (late.length ? `, ${late.length} ${late.length === 1 ? 'is' : 'are'} running late.` : '.')
+    (late.length ? `, ${late.length} ${late.length === 1 ? 'is' : 'are'} running late` : '') +
+    (toReview.length ? `, ${toReview.length} ready for your review.` : '.')
 
   const mon = startOfWeek(now)
   const week = Array.from({ length: 7 }, (_, i) => addDays(mon, i))
@@ -92,6 +96,20 @@ export function TodayScreen({ go }: { go: Nav }) {
         </section>
 
         <section className="card lists">
+          {isToday && toReview.length > 0 && (
+            <div className="group">
+              <div className="group-head">
+                <h2 className="review-title">Ready for your review</h2>
+                <button className="link small" onClick={() => go('team')}>
+                  Team
+                </button>
+              </div>
+              {toReview.map((t) => (
+                <ReviewRow key={t.id} task={t} />
+              ))}
+            </div>
+          )}
+
           {isToday && late.length > 0 && (
             <div className="group">
               <h2 className="late-title">Running late</h2>

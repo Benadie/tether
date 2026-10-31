@@ -5,7 +5,7 @@ import type { Task } from '../data/types'
 import { addDays, daysBetween, fmtLong, fmtShort, hhmm, isoDate, parseIsoDate, sameDay, startOfWeek } from '../lib/dates'
 import { ScreenHeader } from '../components/common'
 import { useEditor } from '../components/Editor'
-import { TaskRow } from '../components/TaskRow'
+import { ReviewRow, TaskRow, readyForReview } from '../components/TaskRow'
 import { useNow } from './TodayScreen'
 import type { Nav } from '../App'
 
@@ -56,7 +56,8 @@ export function DashboardScreen({ go }: { go: Nav }) {
     done: myTasks.filter((t) => t.done).sort((a, b) => (b.doneAt ?? '').localeCompare(a.doneAt ?? '')),
   }
 
-  const teamToReview = state.tasks.filter((t) => t.assignee && !t.done && t.status === 'review').length
+  const toReview = readyForReview(state.tasks)
+  const teamToReview = toReview.length
 
   const tiles = [
     { label: 'Overdue', value: late.length, tone: late.length ? 'red' : '', onClick: () => setFilter('late') },
@@ -106,6 +107,14 @@ export function DashboardScreen({ go }: { go: Nav }) {
             ))}
           </div>
           <div className="dash-list">
+            {filter === 'open' && toReview.length > 0 && (
+              <div className="task-group">
+                <h3 className="needs-review">Ready for your review</h3>
+                {toReview.map((t) => (
+                  <ReviewRow key={t.id} task={t} />
+                ))}
+              </div>
+            )}
             {filter === 'open' ? (
               <GroupedTasks tasks={open} today={today} in7={in7} />
             ) : list[filter].length ? (

@@ -4,7 +4,7 @@ import { addDays, addMonths, isoDate, parseIsoDate } from '../lib/dates'
 import { uid } from '../lib/id'
 import { makeSeed } from './seed'
 import { OLD_INK_TO_NEW } from '../components/ColorPicker'
-import type { AppState, CalEvent, Clerk, NoteLine, NotePage, Repeat, PayrollClient, PayrollItem, PayrollMark, Settings, Task, VatChecks, VatClient } from './types'
+import type { AppState, CalEvent, Clerk, Client, Company, NoteLine, NotePage, Repeat, PayrollClient, PayrollItem, PayrollMark, Settings, Task, VatChecks, VatClient } from './types'
 
 // Everything lives on the tablet (IndexedDB); nothing is sent anywhere.
 const KEY = 'tether-state-v1'
@@ -37,6 +37,14 @@ type Store = {
   removePayrollClient: (id: string) => void
   /** Moves a box on: blank → ✓ → ✗ → n/a → blank */
   cyclePayrollMark: (clientId: string, month: string, item: PayrollItem) => void
+  addClient: (c: { name: string; code?: string }) => Client
+  updateClient: (id: string, patch: { name?: string; code?: string }) => void
+  removeClient: (id: string) => void
+  addCompany: (clientId: string, name: string) => void
+  updateCompany: (clientId: string, companyId: string, patch: Partial<Company>) => void
+  removeCompany: (clientId: string, companyId: string) => void
+  /** The client's notes page (not stored until something is written on it) */
+  clientPage: (clientId: string) => NotePage
   setSettings: (patch: Partial<Settings>) => void
   resetDemo: () => void
   restore: (data: AppState) => void
@@ -55,6 +63,7 @@ const emptyState = (name = ''): AppState => ({
   vatChecks: {},
   payrollClients: [],
   payrollChecks: {},
+  clients: [],
   settings: { name },
 })
 
@@ -289,6 +298,68 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })
       },
 
+      addClient(c) {
+        const client: Client = { id: uid(), name: c.name, code: c.code, companies: [], created: new Date().toISOString() }
+        update((s) => ({ ...s, clients: [...s.clients, client] }))
+        return client
+      },
+
+      // Renaming also renames the client on its tasks and notes page.
+      updateClient(id, patch) {
+        update((s) => {
+          const old = s.clients.find((c) => c.id === id)
+          const renamed = patch.name && old && patch.name !== old.name
+          return {
+            ...s,
+            clients: s.clients.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+            tasks: renamed ? s.tasks.map((t) => (t.clientId === id ? { ...t, client: patch.name } : t)) : s.tasks,
+            pages: renamed ? s.pages.map((p) => (p.clientId === id ? { ...p, title: `${patch.name} notes` } : p)) : s.pages,
+          }
+        })
+      },
+
+      // Takes the client off the Clients tab. Their tasks and notes page are kept.
+      removeClient(id) {
+        update((s) => ({ ...s, clients: s.clients.filter((c) => c.id !== id) }))
+      },
+
+      addCompany(clientId, name) {
+        update((s) => ({
+          ...s,
+          clients: s.clients.map((c) => (c.id === clientId ? { ...c, companies: [...c.companies, { id: uid(), name }] } : c)),
+        }))
+      },
+
+      updateCompany(clientId, companyId, patch) {
+        update((s) => ({
+          ...s,
+          clients: s.clients.map((c) =>
+            c.id === clientId ? { ...c, companies: c.companies.map((x) => (x.id === companyId ? { ...x, ...patch } : x)) } : c,
+          ),
+        }))
+      },
+
+      removeCompany(clientId, companyId) {
+        update((s) => ({
+          ...s,
+          clients: s.clients.map((c) => (c.id === clientId ? { ...c, companies: c.companies.filter((x) => x.id !== companyId) } : c)),
+        }))
+      },
+
+      clientPage(clientId) {
+        const client = state.clients.find((c) => c.id === clientId)
+        return (
+          state.pages.find((p) => p.clientId === clientId) ?? {
+            id: `client-${clientId}`,
+            title: `${client?.name ?? 'Client'} notes`,
+            clientId,
+            created: new Date().toISOString(),
+            updated: new Date().toISOString(),
+            lines: [],
+          }
+        )
+      },
+
       setSettings(patch) {
         update((s) => ({ ...s, settings: { ...s.settings, ...patch } }))
       },
@@ -334,6 +405,7 @@ function upgrade(stored: AppState): AppState {
     vatChecks: stored.vatChecks ?? {},
     payrollClients: stored.payrollClients ?? [],
     payrollChecks: stored.payrollChecks ?? {},
+    clients: stored.clients ?? [],
   }
   if (saved.clerks) return tidy(saved)
   return tidy(addDemoTeam(saved))

@@ -24,6 +24,28 @@ export interface Task {
   client?: string
   /** Comes back automatically when ticked off */
   repeat?: Repeat
+  /** The client (Clients tab) this task belongs to */
+  clientId?: string
+  /** Which company in the client's group it's for, e.g. "Moretti Properties (Pty) Ltd" */
+  company?: string
+}
+
+/** A client on the Clients tab: one company, or a group of companies. */
+export interface Client {
+  id: string
+  name: string
+  /** e.g. "MOR001" */
+  code?: string
+  /** The companies in the group (empty for a single company) */
+  companies: Company[]
+  created: string
+}
+
+export interface Company {
+  id: string
+  name: string
+  /** Short remark, e.g. "dormant" or "year end Feb" */
+  note?: string
 }
 
 export type TaskStatus = 'todo' | 'doing' | 'review'
@@ -124,6 +146,8 @@ export interface NotePage {
   day?: string
   /** Who the linked email came from, e.g. "HR" */
   linkedEmail?: string
+  /** Set for a client's notes page (Clients tab) */
+  clientId?: string
   lines: NoteLine[]
 }
 
@@ -165,5 +189,6 @@ export interface AppState {
   payrollClients: PayrollClient[]
   /** Checklists keyed "clientId:YYYY-MM" (the payroll month) */
   payrollChecks: Record<string, PayrollChecks>
+  clients: Client[]
   settings: Settings
 }

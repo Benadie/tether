@@ -9,10 +9,10 @@ import { CHECKS, CYCLE_SHORT, addMonth, checksDone, latestPeriodEnd, longMonth, 
 
 type Sheet = 'uneven' | 'even'
 
-/** The month just finished: the VAT period you're usually working on now. */
-function lastMonth() {
+/** The tab always opens on the current month. */
+function thisMonth() {
   const d = new Date()
-  return addMonth(monthKey(d.getFullYear(), d.getMonth()), -1)
+  return monthKey(d.getFullYear(), d.getMonth())
 }
 
 const sheetOf = (key: string): Sheet => ((parseMonth(key).month0 + 1) % 2 === 0 ? 'even' : 'uneven')
@@ -21,7 +21,7 @@ const sheetOf = (key: string): Sheet => ((parseMonth(key).month0 + 1) % 2 === 0 
 export function VatScreen() {
   const { state, toggleVatCheck } = useStore()
   const editor = useEditor()
-  const [month, setMonth] = useState(lastMonth)
+  const [month, setMonth] = useState(thisMonth)
   const sheet = sheetOf(month)
 
   const clients = state.vatClients.filter((c) => c.cycle === sheet || c.cycle === 'monthly')
@@ -29,7 +29,7 @@ export function VatScreen() {
 
   // Switching sheet keeps you near the same time: the latest month of that sheet.
   const showSheet = (s: Sheet) => {
-    if (s !== sheet) setMonth(latestPeriodEnd(s, lastMonth()))
+    if (s !== sheet) setMonth(latestPeriodEnd(s, thisMonth()))
   }
 
   return (
