@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { isMine, useStore } from '../data/store'
-import { addDays, fmtDow, fmtLong, greeting, hourOf, isoDate, parseIsoDate, daysBetween, sameDay, startOfWeek } from '../lib/dates'
+import { addDays, fmtDow, fmtLong, greeting, hourOf, isoDate, parseIsoDate, sameDay, startOfWeek } from '../lib/dates'
 import { Checkbox, DAY_START, HOURS, ScreenHeader, eventSlot, eventTime, taskSlot } from '../components/common'
 import { TaskRow } from '../components/TaskRow'
 import { useEditor } from '../components/Editor'
@@ -10,7 +10,7 @@ import type { Nav } from '../App'
 const ROW_H = 66
 
 export function TodayScreen({ go }: { go: Nav }) {
-  const { state, toggleTask, nudge, dailyPage } = useStore()
+  const { state, toggleTask, dailyPage } = useStore()
   const myTasks = state.tasks.filter(isMine)
   const editor = useEditor()
   const now = useNow()
@@ -26,7 +26,6 @@ export function TodayScreen({ go }: { go: Nav }) {
   const timed = dayTasks.filter((t) => t.time)
   const anyTime = dayTasks.filter((t) => !t.time)
   const events = state.events.filter((e) => sameDay(new Date(e.start), viewing))
-  const waiting = state.waiting.filter((w) => !w.done).sort((a, b) => a.since.localeCompare(b.since))
 
   const things = dueToday.length + late.length
   const subtitle =
@@ -113,36 +112,6 @@ export function TodayScreen({ go }: { go: Nav }) {
             {anyTime.map((t) => (
               <TaskRow key={t.id} task={t} showDue={false} />
             ))}
-          </div>
-
-          <div className="group">
-            <h2>
-              <button className="h2-link" onClick={() => go('waiting')}>
-                Waiting on a reply
-              </button>
-            </h2>
-            {waiting.slice(0, 3).map((w) => {
-              const days = daysBetween(parseIsoDate(w.since), now)
-              return (
-                <div key={w.id} className="item tappable" onClick={() => editor.editWaiting(w)}>
-                  <span className="avatar">{w.who[0]}</span>
-                  <div>
-                    <b>{w.title}</b>
-                    <small className={days >= 4 ? 'late' : ''}>
-                      {w.who}, {days} {days === 1 ? 'day' : 'days'}
-                    </small>
-                  </div>
-                  {days >= 4 && (
-                    <button className="chip outline" onClick={(e) => {
-                    e.stopPropagation()
-                    nudge(w.id)
-                  }}>
-                      Nudge
-                    </button>
-                  )}
-                </div>
-              )
-            })}
           </div>
         </section>
 

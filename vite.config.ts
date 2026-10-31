@@ -4,7 +4,7 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
 import pkg from './package.json' with { type: 'json' }
 
 // `npm run dev:tablet` serves over HTTPS on your local network so the tablet can
-// open it (the pen, install-as-app and Outlook sign-in all need a secure origin).
+// open it (the pen and install-as-app need a secure origin).
 export default defineConfig(({ mode }) => ({
   plugins: [
     react(),

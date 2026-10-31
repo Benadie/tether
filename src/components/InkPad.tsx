@@ -7,7 +7,6 @@ import { at, fmtShort, hhmm, parseIsoDate, sameDay } from '../lib/dates'
 import { uid } from '../lib/id'
 import { handwritingAvailable, recognize } from '../lib/handwriting'
 import { findWhen, whenLabel } from '../lib/when'
-import * as outlook from '../sync/outlook'
 import { ActionDialog, type ActionKind, type ActionResult } from './ActionDialog'
 import { ColorPicker, HIGHLIGHT_SWATCHES, INK_SWATCHES } from './ColorPicker'
 
@@ -456,12 +455,9 @@ export function InkPad(props: {
       const ev = store.addEvent({ title: r.title, start: at(day, r.time), end: at(day, r.end), source: 'local' })
       tag = { kind: 'calendar', label: 'On calendar', refId: ev.id }
     } else {
+      // Opens the tablet's email app with the note filled in.
       const body = `${r.title}\n\nFrom my notes: ${page.title || 'Day notes'}`
-      if (store.outlookReady) {
-        window.open(await outlook.createDraft(r.title, body, r.to || undefined), '_blank')
-      } else {
-        window.location.href = `mailto:${r.to}?subject=${encodeURIComponent(r.title)}&body=${encodeURIComponent(body)}`
-      }
+      window.location.href = `mailto:${r.to}?subject=${encodeURIComponent(r.title)}&body=${encodeURIComponent(body)}`
       tag = { kind: 'email', label: 'Emailed' }
     }
 

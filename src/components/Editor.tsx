@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, type FormEvent, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
 import { useStore } from '../data/store'
-import type { CalEvent, Clerk, Repeat, Task, TaskStatus, WaitingItem } from '../data/types'
+import type { CalEvent, Clerk, Repeat, Task, TaskStatus } from '../data/types'
 import { at, hhmm, isoDate, pad, parseIsoDate } from '../lib/dates'
 import { DateInput } from './DateInput'
 
@@ -10,7 +10,6 @@ import { DateInput } from './DateInput'
 type Open =
   | { kind: 'task'; task?: Task; initial?: Partial<Task> }
   | { kind: 'event'; event?: CalEvent; date?: string }
-  | { kind: 'waiting'; item?: WaitingItem }
   | { kind: 'clerk'; clerk?: Clerk }
 
 type EditorApi = {
@@ -18,8 +17,6 @@ type EditorApi = {
   newTask: (initial?: Partial<Task>) => void
   editEvent: (event: CalEvent) => void
   newEvent: (date?: string) => void
-  editWaiting: (item: WaitingItem) => void
-  newWaiting: () => void
   editClerk: (clerk: Clerk) => void
   newClerk: () => void
 }
@@ -42,8 +39,6 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     newTask: (initial) => setOpen({ kind: 'task', initial }),
     editEvent: (event) => setOpen({ kind: 'event', event }),
     newEvent: (date) => setOpen({ kind: 'event', date }),
-    editWaiting: (item) => setOpen({ kind: 'waiting', item }),
-    newWaiting: () => setOpen({ kind: 'waiting' }),
     editClerk: (clerk) => setOpen({ kind: 'clerk', clerk }),
     newClerk: () => setOpen({ kind: 'clerk' }),
   }
@@ -53,7 +48,6 @@ export function EditorProvider({ children }: { children: ReactNode }) {
       {children}
       {open?.kind === 'task' && <TaskDialog task={open.task} initial={open.initial} onClose={close} />}
       {open?.kind === 'event' && <EventDialog event={open.event} date={open.date} onClose={close} />}
-      {open?.kind === 'waiting' && <WaitingDialog item={open.item} onClose={close} />}
       {open?.kind === 'clerk' && <ClerkDialog clerk={open.clerk} onClose={close} />}
     </Ctx.Provider>
   )
@@ -199,7 +193,6 @@ function TaskDialog({ task, initial, onClose }: { task?: Task; initial?: Partial
           </select>
         </label>
       </div>
-      {task?.source === 'outlook' && <p className="muted">From a flagged Outlook email. Changes here stay in Tether.</p>}
     </Shell>
   )
 }
@@ -254,52 +247,6 @@ function EventDialog({ event, date, onClose }: { event?: CalEvent; date?: string
           <input type="time" value={to} onChange={(e) => setTo(e.target.value)} />
         </label>
       </div>
-      {event?.source === 'outlook' && <p className="muted">From your Outlook calendar. Changes here stay in Tether.</p>}
-    </Shell>
-  )
-}
-
-function WaitingDialog({ item, onClose }: { item?: WaitingItem; onClose: () => void }) {
-  const store = useStore()
-  const [title, setTitle] = useState(item?.title ?? '')
-  const [who, setWho] = useState(item?.who ?? '')
-  const [email, setEmail] = useState(item?.email ?? '')
-  const [since, setSince] = useState(item?.since ?? isoDate(new Date()))
-
-  function save() {
-    if (!title.trim() || !who.trim()) return
-    const fields = { title: title.trim(), who: who.trim(), email: email.trim() || undefined, since }
-    if (item) store.updateWaiting(item.id, fields)
-    else store.addWaiting(fields)
-    onClose()
-  }
-
-  return (
-    <Shell
-      title={item ? 'Edit' : 'Waiting on someone'}
-      onClose={onClose}
-      onSubmit={save}
-      onDelete={item ? () => store.deleteWaiting(item.id) : undefined}
-      saveLabel={item ? 'Save' : 'Add'}
-    >
-      <label>
-        What you're waiting for
-        <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Bank confirmation, Harlow" />
-      </label>
-      <div className="row">
-        <label>
-          From who
-          <input value={who} onChange={(e) => setWho(e.target.value)} placeholder="e.g. Bank" />
-        </label>
-        <label>
-          Asked on
-          <DateInput value={since} onChange={(v) => v && setSince(v)} />
-        </label>
-      </div>
-      <label>
-        Their email (for nudges)
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-      </label>
     </Shell>
   )
 }

@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { CalendarDays, CalendarRange, CheckSquare, Hourglass, LayoutDashboard, NotebookPen, Pencil, Plus, Settings as Gear, Table2, Timer, Users } from 'lucide-react'
+import { CalendarDays, CalendarRange, CheckSquare, LayoutDashboard, NotebookPen, Pencil, Plus, Settings as Gear, Table2, Users } from 'lucide-react'
 import { useStore } from './data/store'
 import { TodayScreen } from './screens/TodayScreen'
 import { WeekScreen } from './screens/WeekScreen'
 import { CalendarScreen } from './screens/CalendarScreen'
 import { NotesScreen } from './screens/NotesScreen'
-import { WaitingScreen } from './screens/WaitingScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { DashboardScreen } from './screens/DashboardScreen'
 import { TeamScreen } from './screens/TeamScreen'
@@ -16,7 +15,7 @@ import { prepareHandwriting } from './lib/handwriting'
 import { autoBackupIfDue } from './lib/backup'
 import { askNotificationPermission, notificationPermission, notificationSettings, useNotifications } from './lib/notify'
 
-export type Screen = 'dashboard' | 'today' | 'week' | 'calendar' | 'notes' | 'waiting' | 'team' | 'settings'
+export type Screen = 'dashboard' | 'today' | 'week' | 'calendar' | 'notes' | 'team' | 'settings'
 export type Nav = (screen: Screen, pageId?: string) => void
 
 const NAV = [
@@ -25,11 +24,8 @@ const NAV = [
   { id: 'week', label: 'Week', icon: Table2 },
   { id: 'calendar', label: 'Calendar', icon: CalendarRange },
   { id: 'notes', label: 'Notes', icon: Pencil },
-  { id: 'waiting', label: 'Waiting', icon: Hourglass },
   { id: 'team', label: 'Team', icon: Users },
 ] as const
-
-const SYNC_EVERY_MS = 10 * 60_000
 
 export function App() {
   return (
@@ -48,16 +44,6 @@ function Shell() {
     setScreen(s)
     if (id) setPageId(id)
   }
-
-  // Keep Outlook fresh while the app is open.
-  useEffect(() => {
-    if (!store.outlookReady) return
-    const sync = () => store.syncOutlook().catch((e) => console.warn('Sync failed', e))
-    sync()
-    const t = setInterval(sync, SYNC_EVERY_MS)
-    return () => clearInterval(t)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store.outlookReady])
 
   useNotifications(store.state)
   useBackgroundJobs()
@@ -100,7 +86,6 @@ function Shell() {
         {screen === 'week' && <WeekScreen go={go} />}
         {screen === 'calendar' && <CalendarScreen />}
         {screen === 'notes' && <NotesScreen pageId={pageId} setPageId={setPageId} />}
-        {screen === 'waiting' && <WaitingScreen />}
         {screen === 'team' && <TeamScreen go={go} />}
         {screen === 'settings' && <SettingsScreen />}
       </main>
@@ -108,7 +93,7 @@ function Shell() {
   )
 }
 
-/** The "+" button: add a task, event, waiting item or note page from any screen. */
+/** The "+" button: add a task, event or note page from any screen. */
 function AddMenu({ go }: { go: Nav }) {
   const [open, setOpen] = useState(false)
   const editor = useEditor()
@@ -132,9 +117,6 @@ function AddMenu({ go }: { go: Nav }) {
             </button>
             <button onClick={pick(() => editor.newEvent())}>
               <CalendarDays size={20} /> Event
-            </button>
-            <button onClick={pick(() => editor.newWaiting())}>
-              <Timer size={20} /> Waiting on someone
             </button>
             <button onClick={pick(() => go('notes', newPage().id))}>
               <NotebookPen size={20} /> Note page

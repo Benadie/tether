@@ -1,73 +1,55 @@
 # Tether
 
-A pen-first day planner for an 11" Lenovo tablet: today's schedule, week, month
-calendar, handwritten notes and "waiting on a reply". Any written line can become a
-task, a reminder, a calendar event or an email. Optional link to Outlook; see
-[OUTLOOK-SETUP.md](OUTLOOK-SETUP.md).
+A pen-first day planner for an 11" Lenovo Android tablet, built for running an audit
+team: today's schedule, week and month calendars, a dashboard, handwritten notes that
+turn into text, a team board for your clerks, reminders and notifications. Everything
+is stored on the tablet only; nothing is sent anywhere.
 
-## Why it's a web app (PWA)
+## Install on the tablet
 
-Lenovo's 11" tablets (Tab P11 / M11 / Tab Plus) run Android with Chrome, which gives
-web apps full stylus input: pressure, the eraser button and palm rejection. Tether
-**installs to the home screen like a normal app**, runs full-screen and works offline.
-The same code also runs on a Windows PC or an iPad, and can later be wrapped as a
-Play Store app with Capacitor without a rewrite.
-
-## Run it on your PC
-
-```bash
-npm install
-npm run dev
-```
-
-Open http://localhost:5173. A mouse acts as the pen; a click without dragging selects a line.
-
-## Put it on the tablet
-
-**Testing over Wi-Fi:** run `npm run dev:tablet` on the PC, then open the
-`https://<pc-ip>:5173` address it prints, using Chrome on the tablet. Accept the
-self-signed certificate warning (dev only).
-
-**For daily use:** host the built app on any free HTTPS static host
-(Azure Static Web Apps fits a Microsoft 365 firm; Netlify or Cloudflare Pages also work):
-
-```bash
-npm run build
-```
-
-Upload the `dist` folder. On the tablet, open the address in Chrome → menu (⋮) → **Install app**.
-Then add that address as a redirect URI in the Outlook app registration.
+Download the latest `Tether-x.y.z.apk` from the
+[releases page](https://github.com/Benadie/tether/releases/latest) on the tablet, open
+it and tap **Install**. After that, Tether checks for new versions itself and shows an
+**Update** bar. Updates keep all your notes and tasks.
 
 ## Using the pen
 
 | Input | Does |
 |---|---|
-| Pen tip | Writes (pressure-sensitive) |
-| Pen side button / eraser end | Erases |
-| Finger tap on a line | Selects it → *Make it a task, Remind me, Attach to email, Put on calendar* |
+| Pen tip | Writes (pressure-sensitive). A moment after you stop, the line becomes typed text (Undo brings the ink back) |
+| Pen side button / eraser end | Erases ink and typed words |
+| Finger tap on a line | Selects it → *Remind me (spotted date)*, *Make it a task*, *Convert to text*, *Remind me*, *Attach to email*, *Put on calendar*, *Delete* |
 | Finger drag | Scrolls (your palm never draws) |
-| Toolbar | Pen, highlighter, eraser, keyboard typing, undo |
+| Pen / highlighter button, tapped again | Pick the colour for what you write next |
 
-When you turn a handwritten line into a task, Tether asks for its text. On Android,
-Gboard's handwriting mode lets you write that with the pen too.
+Handwriting is read on the tablet with Google ML Kit (the English model downloads once).
+
+## Building a new version (on the PC)
+
+```bash
+npm install
+npm run apk
+```
+
+`npm run apk` builds the app and signs it with the key in `%USERPROFILE%\TetherKeys`
+(keep that folder backed up: every update must be signed with it). Bump `version` in
+`package.json` first; the output is `release\Tether-<version>.apk`. Publish it as a GitHub
+release and installed copies offer the update.
+
+To try changes on the PC: `npm run dev` and open http://localhost:5173 (a mouse acts as the pen).
 
 ## Project layout
 
 ```
 src/
-  App.tsx                 sidebar + screen switching, reminders, auto-sync
-  data/types.ts           Task, CalEvent, NotePage, Stroke…
-  data/store.tsx          state, saved on the tablet (IndexedDB), Outlook merge
+  App.tsx                 sidebar, screen switching, notifications, backups
+  data/types.ts           Task, CalEvent, NotePage, Stroke, Clerk…
+  data/store.tsx          state, saved on the tablet (IndexedDB)
   data/seed.ts            demo data (audit firm); clear it in Settings
-  sync/outlook.ts         Microsoft sign-in + Graph calls
   components/InkPad.tsx   lined paper, stylus ink, line actions
-  screens/                Today, Week, Calendar, Notes, Waiting, Settings
+  lib/                    dates, smart dates (when.ts), handwriting, notifications,
+                          backups, themes, app updates
+  screens/                Dashboard, Today, Week, Calendar, Notes, Team, Settings
+android/                  the Android app (Capacitor), incl. HandwritingPlugin.java
+scripts/build-apk.ps1     signed APK build
 ```
-
-## Next steps worth doing
-
-1. **Handwriting to text:** wrap with Capacitor and use Google ML Kit *Digital Ink
-   Recognition* (on-device, free) so written lines become text automatically.
-2. **Reminders when the app is closed:** with Outlook linked they already go to Microsoft
-   To Do. Standalone needs the Capacitor local-notifications plugin.
-3. **Client/engagement tags** on tasks and pages (e.g. filter everything for Harlow).

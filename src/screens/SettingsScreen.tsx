@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../data/store'
 import { fmtDmy, fmtShort, hhmm } from '../lib/dates'
 import { ScreenHeader } from '../components/common'
-import * as outlook from '../sync/outlook'
 import { APP_VERSION, checkForUpdate, updatesEnabled } from '../lib/updates'
 import { autoBackupIfDue, lastAutoBackup, readBackup, shareBackup, type BackupFile } from '../lib/backup'
 import { prepareHandwriting, useHandwritingStatus } from '../lib/handwriting'
@@ -24,21 +23,7 @@ import { ColorPicker, HIGHLIGHT_SWATCHES, INK_SWATCHES, TEXT_SWATCHES } from '..
 export function SettingsScreen() {
   const store = useStore()
   const { settings } = store.state
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
   const [updateMsg, setUpdateMsg] = useState('')
-
-  async function run(fn: () => Promise<unknown>) {
-    setBusy(true)
-    setError('')
-    try {
-      await fn()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setBusy(false)
-    }
-  }
 
   return (
     <div className="screen">
@@ -105,39 +90,8 @@ export function SettingsScreen() {
         <NotificationsCard />
 
         <section className="card form">
-          <h2>Outlook</h2>
-          {!outlook.outlookConfigured() ? (
-            <p className="muted">
-              Not set up yet. Tether works on its own; follow <b>OUTLOOK-SETUP.md</b> in the project folder to link
-              your Outlook calendar, flagged emails and To Do.
-            </p>
-          ) : store.outlookReady ? (
-            <>
-              <p>
-                Connected as <b>{settings.outlookAccount}</b>
-                {settings.lastSync &&
-                  `. Last synced ${fmtShort(new Date(settings.lastSync))}, ${hhmm(new Date(settings.lastSync))}`}
-              </p>
-              <div className="row">
-                <button className="chip primary" disabled={busy} onClick={() => run(store.syncOutlook)}>
-                  {busy ? 'Syncing…' : 'Sync now'}
-                </button>
-                <button className="chip" onClick={() => run(outlook.signOut)}>
-                  Disconnect
-                </button>
-              </div>
-            </>
-          ) : (
-            <button className="chip primary" onClick={() => run(outlook.signIn)}>
-              Connect Outlook
-            </button>
-          )}
-          {error && <p className="late">{error}</p>}
-        </section>
-
-        <section className="card form">
           <h2>Data</h2>
-          <p className="muted">Everything is saved on this tablet. Outlook items are copied in when you sync.</p>
+          <p className="muted">Everything is saved on this tablet only; nothing is sent anywhere.</p>
           <div className="row">
             <button className="chip" onClick={() => confirm('Remove all notes, tasks and events?') && store.clearAll()}>
               Start fresh

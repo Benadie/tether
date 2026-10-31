@@ -32,7 +32,7 @@ export function WeekScreen({ go }: { go: Nav }) {
     <div className="screen">
       <ScreenHeader
         title={title}
-        subtitle={`${range}. Meetings come from your Outlook calendar, tasks from flagged emails.`}
+        subtitle={`${range}. Tap a meeting or task to change it.`}
         right={
           <div className="pager">
             <button className="round" aria-label="Previous week" onClick={() => setMon(addDays(mon, -7))}>

@@ -1,19 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { get, set } from 'idb-keyval'
-import { addDays, addMonths, isoDate, parseIsoDate, startOfWeek } from '../lib/dates'
+import { addDays, addMonths, isoDate, parseIsoDate } from '../lib/dates'
 import { uid } from '../lib/id'
-import * as outlook from '../sync/outlook'
 import { makeSeed } from './seed'
 import { OLD_INK_TO_NEW } from '../components/ColorPicker'
-import type { AppState, CalEvent, Clerk, NoteLine, NotePage, Repeat, Settings, Task, WaitingItem } from './types'
+import type { AppState, CalEvent, Clerk, NoteLine, NotePage, Repeat, Settings, Task } from './types'
 
-// Everything lives on the tablet (IndexedDB), so the app works on its own.
-// Outlook is an optional source that is merged in on sync.
+// Everything lives on the tablet (IndexedDB); nothing is sent anywhere.
 const KEY = 'tether-state-v1'
 
 type Store = {
   state: AppState
-  outlookReady: boolean
   update: (fn: (s: AppState) => AppState) => void
   addTask: (t: Omit<Task, 'id' | 'done'>) => Task
   toggleTask: (id: string) => void
@@ -22,22 +19,16 @@ type Store = {
   addEvent: (e: Omit<CalEvent, 'id'>) => CalEvent
   updateEvent: (id: string, patch: Partial<CalEvent>) => void
   deleteEvent: (id: string) => void
-  updateWaiting: (id: string, patch: Partial<WaitingItem>) => void
-  deleteWaiting: (id: string) => void
   savePage: (p: NotePage) => void
   setLineOcr: (pageId: string, lineId: string, ocr: string | undefined) => void
   convertLineInk: (pageId: string, lineId: string, strokeIds: string[], text: string, color: string) => void
   newPage: () => NotePage
   deletePage: (id: string) => void
   dailyPage: (day: string) => NotePage
-  addWaiting: (w: Omit<WaitingItem, 'id' | 'done'>) => void
-  resolveWaiting: (id: string) => void
-  nudge: (id: string) => Promise<void>
   addClerk: (c: Omit<Clerk, 'id'>) => Clerk
   updateClerk: (id: string, patch: Partial<Clerk>) => void
   deleteClerk: (id: string) => void
   setSettings: (patch: Partial<Settings>) => void
-  syncOutlook: () => Promise<void>
   resetDemo: () => void
   restore: (data: AppState) => void
   clearAll: () => void
@@ -49,7 +40,6 @@ export const useStore = () => useContext(Ctx)!
 const emptyState = (name = ''): AppState => ({
   tasks: [],
   events: [],
-  waiting: [],
   pages: [],
   clerks: [],
   settings: { name },
@@ -57,7 +47,6 @@ const emptyState = (name = ''): AppState => ({
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState | null>(null)
-  const [outlookReady, setOutlookReady] = useState(false)
   const stateRef = useRef<AppState | null>(null)
   stateRef.current = state
 
@@ -67,14 +56,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     Promise.race([get<AppState>(KEY), timeout])
       .catch(() => undefined)
       .then((saved) => setState(saved ? upgrade(saved) : makeSeed()))
-    outlook
-      .initOutlook()
-      .then((acc) => {
-        if (!acc) return
-        setOutlookReady(true)
-        setState((s) => s && { ...s, settings: { ...s.settings, outlookAccount: acc.username } })
-      })
-      .catch((e) => console.warn('Outlook init failed', e))
   }, [])
 
   // Debounced save
@@ -88,21 +69,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const store = useMemo<Store | null>(() => {
     if (!state) return null
-    const connected = () => outlookReady
-
-    const pushToOutlook = (what: string, p: Promise<unknown>) =>
-      p.catch((e) => console.warn(`Could not ${what} in Outlook`, e))
 
     return {
       state,
-      outlookReady,
       update,
 
       addTask(t) {
         const task: Task = { ...t, id: uid(), done: false }
         update((s) => ({ ...s, tasks: [...s.tasks, task] }))
-        if (connected() && task.source !== 'outlook')
-          pushToOutlook('create task', outlook.createTodoTask(task.title, task.due, task.remindAt ? new Date(task.remindAt) : undefined))
         return task
       },
 
@@ -121,7 +95,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...(next ? [next] : []),
           ],
         }))
-        if (connected() && t?.outlookId && !t.done) pushToOutlook('complete flag', outlook.completeFlag(t.outlookId))
       },
 
       updateTask(id, patch) {
@@ -148,19 +121,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         update((s) => ({ ...s, events: s.events.filter((x) => x.id !== id) }))
       },
 
-      updateWaiting(id, patch) {
-        update((s) => ({ ...s, waiting: s.waiting.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
-      },
-
-      deleteWaiting(id) {
-        update((s) => ({ ...s, waiting: s.waiting.filter((x) => x.id !== id) }))
-      },
-
       addEvent(e) {
         const ev: CalEvent = { ...e, id: uid() }
         update((s) => ({ ...s, events: [...s.events, ev] }))
-        if (connected())
-          pushToOutlook('create event', outlook.createEvent(ev.title, new Date(ev.start), new Date(ev.end)))
         return ev
       },
 
@@ -236,31 +199,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         )
       },
 
-      addWaiting(w) {
-        update((s) => ({ ...s, waiting: [...s.waiting, { ...w, id: uid(), done: false }] }))
-      },
-
-      resolveWaiting(id) {
-        update((s) => ({ ...s, waiting: s.waiting.map((w) => (w.id === id ? { ...w, done: true } : w)) }))
-      },
-
-      async nudge(id) {
-        const w = state.waiting.find((x) => x.id === id)
-        if (!w) return
-        if (connected() && w.outlookId) {
-          const link = await outlook.draftNudge(w.outlookId)
-          window.open(link, '_blank')
-        } else {
-          const subject = encodeURIComponent(`Following up: ${w.title}`)
-          const body = encodeURIComponent('Hi, just following up on this. Any update?')
-          window.location.href = `mailto:${w.email ?? ''}?subject=${subject}&body=${body}`
-        }
-        update((s) => ({
-          ...s,
-          waiting: s.waiting.map((x) => (x.id === id ? { ...x, nudgedAt: new Date().toISOString() } : x)),
-        }))
-      },
-
       addClerk(c) {
         const clerk: Clerk = { ...c, id: uid() }
         update((s) => ({ ...s, clerks: [...s.clerks, clerk] }))
@@ -285,41 +223,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         update((s) => ({ ...s, settings: { ...s.settings, ...patch } }))
       },
 
-      async syncOutlook() {
-        const from = startOfWeek(new Date())
-        const [events, flagged, waiting] = await Promise.all([
-          outlook.fetchEvents(from, addDays(from, 14)),
-          outlook.fetchFlagged(),
-          outlook.fetchWaiting(),
-        ])
-        update((s) => {
-          const byOutlookId = <T extends { outlookId?: string }>(list: T[]) =>
-            new Map(list.filter((x) => x.outlookId).map((x) => [x.outlookId!, x]))
-          const oldTasks = byOutlookId(s.tasks)
-          const oldWaiting = byOutlookId(s.waiting)
-          return {
-            ...s,
-            events: [...s.events.filter((e) => e.source !== 'outlook'), ...events],
-            // Unflagged/completed emails drop out; keep our ids so note links survive.
-            tasks: [
-              ...s.tasks.filter((t) => t.source !== 'outlook'),
-              ...flagged.map((t) => {
-                const old = oldTasks.get(t.outlookId!)
-                return old ? { ...t, id: old.id, noteRef: old.noteRef, time: old.time } : t
-              }),
-            ],
-            waiting: [
-              ...s.waiting.filter((w) => !w.outlookId),
-              ...waiting.map((w) => {
-                const old = oldWaiting.get(w.outlookId!)
-                return old ? { ...w, id: old.id, done: old.done, nudgedAt: old.nudgedAt } : w
-              }),
-            ],
-            settings: { ...s.settings, lastSync: new Date().toISOString() },
-          }
-        })
-      },
-
       resetDemo() {
         setState({ ...makeSeed(), settings: state.settings })
       },
@@ -333,7 +236,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setState({ ...emptyState(state.settings.name), settings: state.settings })
       },
     }
-  }, [state, outlookReady, update])
+  }, [state, update])
 
   if (!store) return <div className="loading">Loading…</div>
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>
@@ -351,17 +254,17 @@ function nextDue(due: string | undefined, repeat: Repeat) {
 }
 
 /** Data saved before clerks existed gets the demo team so the Team board isn't empty. */
+// Data from features taken out of the app (the Waiting list, Outlook sync) is never deleted:
+// it stays in the saved data and in backups, just no longer shown.
 function upgrade(saved: AppState): AppState {
   if (saved.clerks) return tidy(saved)
   return tidy(addDemoTeam(saved))
 }
 
-/** Tasks pointing at a clerk who no longer exists: drop exact duplicates, otherwise hand them back to you. */
+/** Small fixes on load. Nothing is ever deleted. */
 function tidy(s: AppState): AppState {
   const known = new Set(s.clerks.map((c) => c.id))
   const isOrphan = (id?: string) => !!id && !known.has(id)
-  const duplicate = (t: Task) =>
-    s.tasks.some((o) => o !== t && !isOrphan(o.assignee) && o.assignee && o.title === t.title && o.client === t.client)
   // The old, darker pen colours looked black as typed text: swap them for the brighter versions.
   const brighter = (c?: string) => (c && OLD_INK_TO_NEW[c.toLowerCase()]) || c
   const inkColor = brighter(s.settings.inkColor)
@@ -378,9 +281,8 @@ function tidy(s: AppState): AppState {
   return {
     ...s,
     settings: inkColor === s.settings.inkColor ? s.settings : { ...s.settings, inkColor },
-    tasks: s.tasks
-      .filter((t) => !(isOrphan(t.assignee) && duplicate(t)))
-      .map((t) => (isOrphan(t.assignee) ? { ...t, assignee: undefined, status: undefined } : t)),
+    // Never deletes tasks: work for a clerk who no longer exists comes back to you.
+    tasks: s.tasks.map((t) => (isOrphan(t.assignee) ? { ...t, assignee: undefined, status: undefined } : t)),
     pages: s.pages.map((p) => {
       const lines = p.lines.map(fixLine)
       return lines.some((l, i) => l !== p.lines[i]) ? { ...p, lines } : p

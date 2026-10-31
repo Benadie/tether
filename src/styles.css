@@ -306,9 +306,9 @@ label input:focus { outline: 2px solid var(--accent); border-color: transparent;
 .hint { font-size: 15px; padding: 10px 10px 0; }
 .empty { display: grid; place-items: center; color: var(--muted); }
 
-/* ---------- Waiting & settings ---------- */
+/* ---------- Settings ---------- */
 
-.waiting-grid, .settings-grid {
+.settings-grid {
   flex: 1; min-height: 0; display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px;
   align-content: start; grid-auto-rows: max-content; overflow-y: auto;
 }
@@ -319,7 +319,7 @@ label input:focus { outline: 2px solid var(--accent); border-color: transparent;
 
 /* ---------- Dashboard ---------- */
 
-.tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+.tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
 .tile {
   background: var(--card); border-radius: 20px; padding: 16px 20px; text-align: left;
   display: flex; flex-direction: column; gap: 2px;
@@ -512,7 +512,7 @@ main > .screen { flex: 1; min-height: 0; height: auto; }
   .today-grid .inkpad { grid-column: 1 / -1; }
   .daystrip button { width: 50px; }
   .screen-head { flex-wrap: wrap; }
-  .calendar-grid, .notes-grid, .waiting-grid, .dash-grid { grid-template-columns: 1fr; overflow-y: auto; }
+  .calendar-grid, .notes-grid, .dash-grid { grid-template-columns: 1fr; overflow-y: auto; }
   .tiles { grid-template-columns: repeat(3, 1fr); }
   .dash-tasks { min-height: 480px; }
   .month { min-height: 520px; }

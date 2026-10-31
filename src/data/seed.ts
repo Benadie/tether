@@ -105,12 +105,6 @@ export function makeSeed(now = new Date()): AppState {
   return {
     tasks,
     events,
-    waiting: [
-      { id: uid(), title: 'Bank confirmation, Harlow', who: 'Bank', since: isoDate(day(-6)), done: false },
-      { id: uid(), title: 'Signed rep letter', who: 'Brightwater FD', since: isoDate(day(-4)), done: false },
-      { id: uid(), title: 'Legal confirmation letter', who: 'Lawyers', since: isoDate(day(-3)), done: false },
-      { id: uid(), title: 'Fixed asset register', who: 'Client, Oakfield', since: isoDate(day(-1)), done: false },
-    ],
     pages: [
       daily,
       planning,

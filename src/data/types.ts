@@ -1,4 +1,4 @@
-export type Source = 'local' | 'note' | 'outlook'
+export type Source = 'local' | 'note'
 
 export interface Task {
   id: string
@@ -13,8 +13,6 @@ export interface Task {
   /** Who asked for it, e.g. "Manager" */
   from?: string
   source: Source
-  /** Outlook message id when the task comes from a flagged email */
-  outlookId?: string
   noteRef?: { pageId: string; lineId: string }
   /** ISO timestamp of a reminder */
   remindAt?: string
@@ -44,19 +42,6 @@ export interface CalEvent {
   start: string // ISO
   end: string // ISO
   source: Source
-  outlookId?: string
-}
-
-export interface WaitingItem {
-  id: string
-  title: string
-  who: string
-  /** YYYY-MM-DD the request went out */
-  since: string
-  email?: string
-  outlookId?: string
-  done: boolean
-  nudgedAt?: string
 }
 
 export interface Stroke {
@@ -114,8 +99,6 @@ export interface Settings {
   /** Colour scheme id (see lib/themes.ts) */
   theme?: string
   notifications?: NotificationSettings
-  outlookAccount?: string
-  lastSync?: string
 }
 
 export interface NotificationSettings {
@@ -133,7 +116,6 @@ export interface NotificationSettings {
 export interface AppState {
   tasks: Task[]
   events: CalEvent[]
-  waiting: WaitingItem[]
   pages: NotePage[]
   clerks: Clerk[]
   settings: Settings

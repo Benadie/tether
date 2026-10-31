@@ -1,7 +1,7 @@
 {
   "name": "Tether",
   "short_name": "Tether",
-  "description": "Pen-first day planner: notes, tasks and your Outlook calendar in one place.",
+  "description": "Pen-first day planner: notes, tasks and your calendar in one place.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "landscape",
