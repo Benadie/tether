@@ -127,6 +127,12 @@ export function makeSeed(now = new Date()): AppState {
       { id: uid(), client: 'Oakfield Trust', cycle: 'uneven', responsible: 'Aisha', notes: 'VAT submission' },
     ],
     vatChecks: {},
+    payrollClients: [
+      { id: uid(), client: 'Harlow Logistics (Pty) Ltd', responsible: 'Aisha', comments: '25th' },
+      { id: uid(), client: 'Kestrel Retail CC', responsible: 'Ben', comments: 'Only EMP submission' },
+      { id: uid(), client: 'Oakfield Trust', responsible: 'Chloe', comments: 'EMP201 from Sept 2025' },
+    ],
+    payrollChecks: {},
     settings: { name: '' },
   }
 }

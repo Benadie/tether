@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { CalendarDays, CalendarRange, CheckSquare, LayoutDashboard, NotebookPen, Pencil, Plus, Receipt, Settings as Gear, Table2, Users } from 'lucide-react'
+import { CalendarDays, CalendarRange, CheckSquare, LayoutDashboard, NotebookPen, Pencil, Plus, Receipt, Settings as Gear, Table2, Users, Wallet } from 'lucide-react'
 import { useStore } from './data/store'
 import { TodayScreen } from './screens/TodayScreen'
 import { WeekScreen } from './screens/WeekScreen'
@@ -9,6 +9,7 @@ import { SettingsScreen } from './screens/SettingsScreen'
 import { DashboardScreen } from './screens/DashboardScreen'
 import { TeamScreen } from './screens/TeamScreen'
 import { VatScreen } from './screens/VatScreen'
+import { PayrollScreen } from './screens/PayrollScreen'
 import { EditorProvider, useEditor } from './components/Editor'
 import { UpdateBanner } from './components/UpdateBanner'
 import { applyTheme, themeById } from './lib/themes'
@@ -16,7 +17,7 @@ import { prepareHandwriting } from './lib/handwriting'
 import { autoBackupIfDue } from './lib/backup'
 import { askNotificationPermission, notificationPermission, notificationSettings, useNotifications } from './lib/notify'
 
-export type Screen = 'dashboard' | 'today' | 'week' | 'calendar' | 'notes' | 'vat' | 'team' | 'settings'
+export type Screen = 'dashboard' | 'today' | 'week' | 'calendar' | 'notes' | 'vat' | 'payroll' | 'team' | 'settings'
 export type Nav = (screen: Screen, pageId?: string) => void
 
 const NAV = [
@@ -26,6 +27,7 @@ const NAV = [
   { id: 'calendar', label: 'Calendar', icon: CalendarRange },
   { id: 'notes', label: 'Notes', icon: Pencil },
   { id: 'vat', label: 'VAT', icon: Receipt },
+  { id: 'payroll', label: 'Payroll', icon: Wallet },
   { id: 'team', label: 'Team', icon: Users },
 ] as const
 
@@ -89,6 +91,7 @@ function Shell() {
         {screen === 'calendar' && <CalendarScreen />}
         {screen === 'notes' && <NotesScreen pageId={pageId} setPageId={setPageId} />}
         {screen === 'vat' && <VatScreen />}
+        {screen === 'payroll' && <PayrollScreen />}
         {screen === 'team' && <TeamScreen go={go} />}
         {screen === 'settings' && <SettingsScreen />}
       </main>

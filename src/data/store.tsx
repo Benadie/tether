@@ -4,7 +4,7 @@ import { addDays, addMonths, isoDate, parseIsoDate } from '../lib/dates'
 import { uid } from '../lib/id'
 import { makeSeed } from './seed'
 import { OLD_INK_TO_NEW } from '../components/ColorPicker'
-import type { AppState, CalEvent, Clerk, NoteLine, NotePage, Repeat, Settings, Task, VatChecks, VatClient } from './types'
+import type { AppState, CalEvent, Clerk, NoteLine, NotePage, Repeat, PayrollClient, PayrollItem, PayrollMark, Settings, Task, VatChecks, VatClient } from './types'
 
 // Everything lives on the tablet (IndexedDB); nothing is sent anywhere.
 const KEY = 'tether-state-v1'
@@ -32,6 +32,11 @@ type Store = {
   updateVatClient: (id: string, patch: Partial<VatClient>) => void
   removeVatClient: (id: string) => void
   toggleVatCheck: (clientId: string, period: string, item: keyof VatChecks) => void
+  addPayrollClient: (c: Omit<PayrollClient, 'id'>) => PayrollClient
+  updatePayrollClient: (id: string, patch: Partial<PayrollClient>) => void
+  removePayrollClient: (id: string) => void
+  /** Moves a box on: blank → ✓ → ✗ → n/a → blank */
+  cyclePayrollMark: (clientId: string, month: string, item: PayrollItem) => void
   setSettings: (patch: Partial<Settings>) => void
   resetDemo: () => void
   restore: (data: AppState) => void
@@ -48,6 +53,8 @@ const emptyState = (name = ''): AppState => ({
   clerks: [],
   vatClients: [],
   vatChecks: {},
+  payrollClients: [],
+  payrollChecks: {},
   settings: { name },
 })
 
@@ -251,6 +258,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })
       },
 
+      addPayrollClient(c) {
+        const client: PayrollClient = { ...c, id: uid() }
+        update((s) => ({ ...s, payrollClients: [...s.payrollClients, client] }))
+        return client
+      },
+
+      updatePayrollClient(id, patch) {
+        update((s) => ({ ...s, payrollClients: s.payrollClients.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
+      },
+
+      // Takes the client off the payroll list. Their past checklists are kept.
+      removePayrollClient(id) {
+        update((s) => ({ ...s, payrollClients: s.payrollClients.filter((x) => x.id !== id) }))
+      },
+
+      cyclePayrollMark(clientId, month, item) {
+        const key = `${clientId}:${month}`
+        const order: (PayrollMark['s'] | undefined)[] = [undefined, 'done', 'no', 'na']
+        update((s) => {
+          const current = s.payrollChecks[key] ?? {}
+          const next = order[(order.indexOf(current[item]?.s) + 1) % order.length]
+          return {
+            ...s,
+            payrollChecks: {
+              ...s.payrollChecks,
+              [key]: { ...current, [item]: next ? { s: next, at: new Date().toISOString() } : undefined },
+            },
+          }
+        })
+      },
+
       setSettings(patch) {
         update((s) => ({ ...s, settings: { ...s.settings, ...patch } }))
       },
@@ -290,7 +328,13 @@ function nextDue(due: string | undefined, repeat: Repeat) {
 // it stays in the saved data and in backups, just no longer shown.
 function upgrade(stored: AppState): AppState {
   // Data saved before the VAT tab existed starts with an empty VAT list.
-  const saved = { ...stored, vatClients: stored.vatClients ?? [], vatChecks: stored.vatChecks ?? {} }
+  const saved = {
+    ...stored,
+    vatClients: stored.vatClients ?? [],
+    vatChecks: stored.vatChecks ?? {},
+    payrollClients: stored.payrollClients ?? [],
+    payrollChecks: stored.payrollChecks ?? {},
+  }
   if (saved.clerks) return tidy(saved)
   return tidy(addDemoTeam(saved))
 }

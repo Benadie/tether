@@ -348,6 +348,15 @@ label input:focus { outline: 2px solid var(--accent); border-color: transparent;
 .vat-row.complete .vat-tick { color: #15803d; }
 .vat-empty { padding: 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 
+/* ---------- Payroll control sheet (shares the VAT table styles) ---------- */
+
+.vat-row.payroll-row { grid-template-columns: minmax(200px, 2.2fr) 110px minmax(180px, 2fr) repeat(4, 92px); }
+.payroll-row.vat-head-group .vat-span-info { grid-column: 1 / 4; }
+.payroll-row .vat-month-head { grid-column: 4 / 8; }
+.vat-tick.mark-done { color: #15803d; }
+.vat-tick.mark-no { color: var(--red); background: color-mix(in srgb, var(--red) 6%, #fff); }
+.vat-tick.mark-na .na { font-size: 15px; font-weight: 600; color: var(--muted); }
+
 /* ---------- Settings ---------- */
 
 .settings-grid {

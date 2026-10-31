@@ -59,6 +59,24 @@ export interface VatChecks {
   empHandedIn?: string
 }
 
+export interface PayrollClient {
+  id: string
+  client: string
+  /** Name of the person doing it, e.g. "Azhar" */
+  responsible?: string
+  /** Task / comments / payroll department, e.g. "Only EMP submission" */
+  comments?: string
+}
+
+/** A payroll checklist box: ✓ done, ✗ not done, or n/a; with the date it was set. */
+export interface PayrollMark {
+  s: 'done' | 'no' | 'na'
+  at: string
+}
+
+export type PayrollItem = 'followedUp' | 'completedByClerk' | 'sentToClient' | 'empSubmitted'
+export type PayrollChecks = Partial<Record<PayrollItem, PayrollMark>>
+
 export interface CalEvent {
   id: string
   title: string
@@ -144,5 +162,8 @@ export interface AppState {
   vatClients: VatClient[]
   /** Checklists keyed "clientId:YYYY-MM" (the month the VAT period ends) */
   vatChecks: Record<string, VatChecks>
+  payrollClients: PayrollClient[]
+  /** Checklists keyed "clientId:YYYY-MM" (the payroll month) */
+  payrollChecks: Record<string, PayrollChecks>
   settings: Settings
 }

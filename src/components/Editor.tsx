@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, type FormEvent, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
 import { useStore } from '../data/store'
-import type { CalEvent, Clerk, Repeat, Task, TaskStatus, VatClient, VatCycle } from '../data/types'
+import type { CalEvent, Clerk, PayrollClient, Repeat, Task, TaskStatus, VatClient, VatCycle } from '../data/types'
 import { CYCLE_HINT, CYCLE_LABEL } from '../lib/vat'
 import { at, hhmm, isoDate, pad, parseIsoDate } from '../lib/dates'
 import { DateInput } from './DateInput'
@@ -13,6 +13,7 @@ type Open =
   | { kind: 'event'; event?: CalEvent; date?: string }
   | { kind: 'clerk'; clerk?: Clerk }
   | { kind: 'vat'; vat?: VatClient; cycle?: VatCycle }
+  | { kind: 'payroll'; client?: PayrollClient }
 
 type EditorApi = {
   editTask: (task: Task) => void
@@ -23,6 +24,8 @@ type EditorApi = {
   newClerk: () => void
   editVatClient: (vat: VatClient) => void
   newVatClient: (cycle?: VatCycle) => void
+  editPayrollClient: (client: PayrollClient) => void
+  newPayrollClient: () => void
 }
 
 export const STATUS_LABEL: Record<TaskStatus, string> = {
@@ -47,6 +50,8 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     newClerk: () => setOpen({ kind: 'clerk' }),
     editVatClient: (vat) => setOpen({ kind: 'vat', vat }),
     newVatClient: (cycle) => setOpen({ kind: 'vat', cycle }),
+    editPayrollClient: (client) => setOpen({ kind: 'payroll', client }),
+    newPayrollClient: () => setOpen({ kind: 'payroll' }),
   }
 
   return (
@@ -56,6 +61,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
       {open?.kind === 'event' && <EventDialog event={open.event} date={open.date} onClose={close} />}
       {open?.kind === 'clerk' && <ClerkDialog clerk={open.clerk} onClose={close} />}
       {open?.kind === 'vat' && <VatClientDialog vat={open.vat} cycle={open.cycle} onClose={close} />}
+      {open?.kind === 'payroll' && <PayrollClientDialog client={open.client} onClose={close} />}
     </Ctx.Provider>
   )
 }
@@ -261,7 +267,9 @@ function EventDialog({ event, date, onClose }: { event?: CalEvent; date?: string
 /** Free text with suggestions from clients already used in tasks. */
 function ClientInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { state } = useStore()
-  const clients = [...new Set([...state.tasks.map((t) => t.client), ...state.vatClients.map((v) => v.client)])]
+  const clients = [
+    ...new Set([...state.tasks.map((t) => t.client), ...state.vatClients.map((v) => v.client), ...state.payrollClients.map((p) => p.client)]),
+  ]
     .filter(Boolean)
     .sort() as string[]
   return (
@@ -347,6 +355,46 @@ function VatClientDialog({ vat, cycle, onClose }: { vat?: VatClient; cycle?: Vat
         <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Processing; VAT; payroll" />
       </label>
       {vat && <p className="muted small-note">Removing a client takes them off the VAT list; their past ticks are kept.</p>}
+    </Shell>
+  )
+}
+
+function PayrollClientDialog({ client: existing, onClose }: { client?: PayrollClient; onClose: () => void }) {
+  const store = useStore()
+  const [client, setClient] = useState(existing?.client ?? '')
+  const [responsible, setResponsible] = useState(existing?.responsible ?? '')
+  const [comments, setComments] = useState(existing?.comments ?? '')
+  const usedNames = [...store.state.payrollClients, ...store.state.vatClients].map((c) => c.responsible ?? '')
+
+  function save() {
+    if (!client.trim()) return
+    const fields = { client: client.trim(), responsible: responsible.trim() || undefined, comments: comments.trim() || undefined }
+    if (existing) store.updatePayrollClient(existing.id, fields)
+    else store.addPayrollClient(fields)
+    onClose()
+  }
+
+  return (
+    <Shell
+      title={existing ? 'Payroll client' : 'Add a payroll client'}
+      onClose={onClose}
+      onSubmit={save}
+      onDelete={existing ? () => store.removePayrollClient(existing.id) : undefined}
+      saveLabel={existing ? 'Save' : 'Add client'}
+    >
+      <label>
+        Client
+        <ClientInput value={client} onChange={setClient} />
+      </label>
+      <label>
+        Responsible
+        <NameInput id="payroll-responsible" value={responsible} onChange={setResponsible} extra={usedNames} placeholder="e.g. Azhar" />
+      </label>
+      <label>
+        Task / comments / payroll department
+        <input value={comments} onChange={(e) => setComments(e.target.value)} placeholder="e.g. Only EMP submission" />
+      </label>
+      {existing && <p className="muted small-note">Removing a client takes them off the payroll list; their past ticks are kept.</p>}
     </Shell>
   )
 }
