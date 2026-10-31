@@ -36,6 +36,28 @@ export interface Clerk {
   role?: string
 }
 
+/** VAT period: every month, or two-monthly ending in even (Feb, Apr…) or uneven (Jan, Mar…) months */
+export type VatCycle = 'monthly' | 'even' | 'uneven'
+
+export interface VatClient {
+  id: string
+  client: string
+  cycle: VatCycle
+  /** Name of the person doing it, e.g. "Lyrisha" */
+  responsible?: string
+  portfolioManager?: string
+  /** e.g. "Processing; VAT; payroll" */
+  notes?: string
+}
+
+/** The checklist for one client's VAT period. Each item holds the date it was ticked (ISO). */
+export interface VatChecks {
+  followedUp?: string
+  doneByClerk?: string
+  reviewed?: string
+  empHandedIn?: string
+}
+
 export interface CalEvent {
   id: string
   title: string
@@ -118,5 +140,8 @@ export interface AppState {
   events: CalEvent[]
   pages: NotePage[]
   clerks: Clerk[]
+  vatClients: VatClient[]
+  /** Checklists keyed "clientId:YYYY-MM" (the month the VAT period ends) */
+  vatChecks: Record<string, VatChecks>
   settings: Settings
 }

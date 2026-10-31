@@ -306,6 +306,48 @@ label input:focus { outline: 2px solid var(--accent); border-color: transparent;
 .hint { font-size: 15px; padding: 10px 10px 0; }
 .empty { display: grid; place-items: center; color: var(--muted); }
 
+/* ---------- VAT control sheet ---------- */
+
+.vat-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.vat-month { font-size: 20px; min-width: 150px; text-align: center; }
+.vat-card { flex: 1; min-height: 0; padding: 0; display: flex; flex-direction: column; }
+.vat-scroll { flex: 1; overflow: auto; }
+.vat-table { min-width: 880px; }
+.vat-row {
+  display: grid; align-items: stretch;
+  grid-template-columns: minmax(170px, 2fr) 96px 104px 92px minmax(120px, 1.4fr) repeat(4, 78px);
+  border-bottom: 1px solid var(--line);
+}
+.vat-row > * { padding: 10px 10px; display: flex; flex-direction: column; justify-content: center; min-width: 0; font-size: 15px; }
+.vat-head-group { border-bottom: 0; }
+.vat-head-group .vat-span-info { grid-column: 1 / 6; padding: 0; }
+.vat-month-head {
+  grid-column: 6 / 10; background: var(--dark); color: #fff; font-weight: 700; letter-spacing: 0.08em;
+  align-items: center; padding: 6px; border-radius: 12px 12px 0 0; margin-top: 12px;
+}
+.vat-head { background: var(--accent-soft); position: sticky; top: 0; z-index: 1; }
+.vat-head > span { font-weight: 700; font-size: 14px; }
+.vat-check-head { text-align: center; align-items: center; background: color-mix(in srgb, var(--accent-soft) 60%, var(--dark) 12%); }
+.vat-client { text-align: left; cursor: pointer; }
+.vat-client b { font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
+.vat-client small { font-size: 13px; }
+.vat-client:active { background: var(--tint); }
+.vat-strong { font-weight: 600; }
+.vat-notes { color: var(--muted); font-size: 15px; }
+.vat-cycle { font-style: normal; font-size: 14px; font-weight: 600; padding: 3px 10px; border-radius: 999px; align-self: flex-start; background: var(--tint); }
+.vat-cycle.monthly { background: var(--event-soft); color: var(--event); }
+.vat-cycle.even { background: var(--accent-soft); color: var(--dark); }
+.vat-cycle.uneven { background: #fff2d6; color: #8a5a00; }
+.vat-tick {
+  align-items: center !important; justify-content: center !important; gap: 0 !important; border-left: 1px solid var(--line);
+  color: var(--accent); cursor: pointer;
+}
+.vat-tick small { font-size: 11px; color: var(--muted); }
+.vat-tick:active { background: var(--accent-soft); }
+.vat-row.complete { background: color-mix(in srgb, #16a34a 8%, #fff); }
+.vat-row.complete .vat-tick { color: #15803d; }
+.vat-empty { padding: 28px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+
 /* ---------- Settings ---------- */
 
 .settings-grid {

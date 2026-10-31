@@ -120,6 +120,13 @@ export function makeSeed(now = new Date()): AppState {
       page('Ideas', day(-11), [line('Shared PBC tracker with clients')]),
     ],
     clerks,
+    vatClients: [
+      { id: uid(), client: 'Harlow Logistics (Pty) Ltd', cycle: 'monthly', responsible: 'Aisha', portfolioManager: 'Joshua', notes: 'Processing; VAT' },
+      { id: uid(), client: 'Brightwater Foods (Pty) Ltd', cycle: 'even', responsible: 'Chloe', portfolioManager: 'Joshua', notes: 'VAT, payroll' },
+      { id: uid(), client: 'Kestrel Retail CC', cycle: 'uneven', responsible: 'Ben', portfolioManager: 'Joshua', notes: 'VAT review and submission' },
+      { id: uid(), client: 'Oakfield Trust', cycle: 'uneven', responsible: 'Aisha', portfolioManager: 'Joshua', notes: 'VAT submission' },
+    ],
+    vatChecks: {},
     settings: { name: '' },
   }
 }

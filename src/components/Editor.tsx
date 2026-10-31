@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, type FormEvent, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
 import { useStore } from '../data/store'
-import type { CalEvent, Clerk, Repeat, Task, TaskStatus } from '../data/types'
+import type { CalEvent, Clerk, Repeat, Task, TaskStatus, VatClient, VatCycle } from '../data/types'
+import { CYCLE_HINT, CYCLE_LABEL } from '../lib/vat'
 import { at, hhmm, isoDate, pad, parseIsoDate } from '../lib/dates'
 import { DateInput } from './DateInput'
 
@@ -11,6 +12,7 @@ type Open =
   | { kind: 'task'; task?: Task; initial?: Partial<Task> }
   | { kind: 'event'; event?: CalEvent; date?: string }
   | { kind: 'clerk'; clerk?: Clerk }
+  | { kind: 'vat'; vat?: VatClient; cycle?: VatCycle }
 
 type EditorApi = {
   editTask: (task: Task) => void
@@ -19,6 +21,8 @@ type EditorApi = {
   newEvent: (date?: string) => void
   editClerk: (clerk: Clerk) => void
   newClerk: () => void
+  editVatClient: (vat: VatClient) => void
+  newVatClient: (cycle?: VatCycle) => void
 }
 
 export const STATUS_LABEL: Record<TaskStatus, string> = {
@@ -41,6 +45,8 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     newEvent: (date) => setOpen({ kind: 'event', date }),
     editClerk: (clerk) => setOpen({ kind: 'clerk', clerk }),
     newClerk: () => setOpen({ kind: 'clerk' }),
+    editVatClient: (vat) => setOpen({ kind: 'vat', vat }),
+    newVatClient: (cycle) => setOpen({ kind: 'vat', cycle }),
   }
 
   return (
@@ -49,6 +55,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
       {open?.kind === 'task' && <TaskDialog task={open.task} initial={open.initial} onClose={close} />}
       {open?.kind === 'event' && <EventDialog event={open.event} date={open.date} onClose={close} />}
       {open?.kind === 'clerk' && <ClerkDialog clerk={open.clerk} onClose={close} />}
+      {open?.kind === 'vat' && <VatClientDialog vat={open.vat} cycle={open.cycle} onClose={close} />}
     </Ctx.Provider>
   )
 }
@@ -254,7 +261,7 @@ function EventDialog({ event, date, onClose }: { event?: CalEvent; date?: string
 /** Free text with suggestions from clients already used in tasks. */
 function ClientInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { state } = useStore()
-  const clients = [...new Set(state.tasks.map((t) => t.client))]
+  const clients = [...new Set([...state.tasks.map((t) => t.client), ...state.vatClients.map((v) => v.client)])]
     .filter(Boolean)
     .sort() as string[]
   return (
@@ -266,6 +273,87 @@ function ClientInput({ value, onChange }: { value: string; onChange: (v: string)
         ))}
       </datalist>
     </>
+  )
+}
+
+/** Suggestions for a name box: clerks plus names already used on the VAT list. */
+function NameInput(props: { id: string; value: string; onChange: (v: string) => void; extra: string[]; placeholder?: string }) {
+  const { state } = useStore()
+  const names = [...new Set([...state.clerks.map((c) => c.name.split(' ')[0]), ...props.extra])].filter(Boolean).sort()
+  return (
+    <>
+      <input list={props.id} value={props.value} onChange={(e) => props.onChange(e.target.value)} placeholder={props.placeholder} />
+      <datalist id={props.id}>
+        {names.map((n) => (
+          <option key={n} value={n} />
+        ))}
+      </datalist>
+    </>
+  )
+}
+
+function VatClientDialog({ vat, cycle, onClose }: { vat?: VatClient; cycle?: VatCycle; onClose: () => void }) {
+  const store = useStore()
+  const list = store.state.vatClients
+  const [client, setClient] = useState(vat?.client ?? '')
+  const [period, setPeriod] = useState<VatCycle>(vat?.cycle ?? cycle ?? 'monthly')
+  const [responsible, setResponsible] = useState(vat?.responsible ?? '')
+  const [manager, setManager] = useState(vat?.portfolioManager ?? '')
+  const [notes, setNotes] = useState(vat?.notes ?? '')
+
+  function save() {
+    if (!client.trim()) return
+    const fields = {
+      client: client.trim(),
+      cycle: period,
+      responsible: responsible.trim() || undefined,
+      portfolioManager: manager.trim() || undefined,
+      notes: notes.trim() || undefined,
+    }
+    if (vat) store.updateVatClient(vat.id, fields)
+    else store.addVatClient(fields)
+    onClose()
+  }
+
+  return (
+    <Shell
+      title={vat ? 'VAT client' : 'Add a VAT client'}
+      onClose={onClose}
+      onSubmit={save}
+      onDelete={vat ? () => store.removeVatClient(vat.id) : undefined}
+      saveLabel={vat ? 'Save' : 'Add client'}
+    >
+      <label>
+        Client
+        <ClientInput value={client} onChange={setClient} />
+      </label>
+      <div className="row">
+        <label>
+          Period
+          <select value={period} onChange={(e) => setPeriod(e.target.value as VatCycle)}>
+            {(Object.keys(CYCLE_LABEL) as VatCycle[]).map((c) => (
+              <option key={c} value={c}>
+                {CYCLE_LABEL[c]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Responsible
+          <NameInput id="vat-responsible" value={responsible} onChange={setResponsible} extra={list.map((v) => v.responsible ?? '')} placeholder="e.g. Lyrisha" />
+        </label>
+        <label>
+          Portfolio manager
+          <NameInput id="vat-manager" value={manager} onChange={setManager} extra={list.map((v) => v.portfolioManager ?? '')} placeholder="e.g. Chane" />
+        </label>
+      </div>
+      <p className="muted small-note">{CYCLE_HINT[period]}</p>
+      <label>
+        Notes
+        <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. Processing; VAT; payroll" />
+      </label>
+      {vat && <p className="muted small-note">Removing a client takes them off the VAT list; their past ticks are kept.</p>}
+    </Shell>
   )
 }
 

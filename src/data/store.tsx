@@ -4,7 +4,7 @@ import { addDays, addMonths, isoDate, parseIsoDate } from '../lib/dates'
 import { uid } from '../lib/id'
 import { makeSeed } from './seed'
 import { OLD_INK_TO_NEW } from '../components/ColorPicker'
-import type { AppState, CalEvent, Clerk, NoteLine, NotePage, Repeat, Settings, Task } from './types'
+import type { AppState, CalEvent, Clerk, NoteLine, NotePage, Repeat, Settings, Task, VatChecks, VatClient } from './types'
 
 // Everything lives on the tablet (IndexedDB); nothing is sent anywhere.
 const KEY = 'tether-state-v1'
@@ -28,6 +28,10 @@ type Store = {
   addClerk: (c: Omit<Clerk, 'id'>) => Clerk
   updateClerk: (id: string, patch: Partial<Clerk>) => void
   deleteClerk: (id: string) => void
+  addVatClient: (c: Omit<VatClient, 'id'>) => VatClient
+  updateVatClient: (id: string, patch: Partial<VatClient>) => void
+  removeVatClient: (id: string) => void
+  toggleVatCheck: (clientId: string, period: string, item: keyof VatChecks) => void
   setSettings: (patch: Partial<Settings>) => void
   resetDemo: () => void
   restore: (data: AppState) => void
@@ -42,6 +46,8 @@ const emptyState = (name = ''): AppState => ({
   events: [],
   pages: [],
   clerks: [],
+  vatClients: [],
+  vatChecks: {},
   settings: { name },
 })
 
@@ -219,6 +225,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
 
 
+      addVatClient(c) {
+        const client: VatClient = { ...c, id: uid() }
+        update((s) => ({ ...s, vatClients: [...s.vatClients, client] }))
+        return client
+      },
+
+      updateVatClient(id, patch) {
+        update((s) => ({ ...s, vatClients: s.vatClients.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
+      },
+
+      // Takes the client off the VAT list. Their past checklists are kept.
+      removeVatClient(id) {
+        update((s) => ({ ...s, vatClients: s.vatClients.filter((x) => x.id !== id) }))
+      },
+
+      toggleVatCheck(clientId, period, item) {
+        const key = `${clientId}:${period}`
+        update((s) => {
+          const current = s.vatChecks[key] ?? {}
+          return {
+            ...s,
+            vatChecks: { ...s.vatChecks, [key]: { ...current, [item]: current[item] ? undefined : new Date().toISOString() } },
+          }
+        })
+      },
+
       setSettings(patch) {
         update((s) => ({ ...s, settings: { ...s.settings, ...patch } }))
       },
@@ -256,7 +288,9 @@ function nextDue(due: string | undefined, repeat: Repeat) {
 /** Data saved before clerks existed gets the demo team so the Team board isn't empty. */
 // Data from features taken out of the app (the Waiting list, Outlook sync) is never deleted:
 // it stays in the saved data and in backups, just no longer shown.
-function upgrade(saved: AppState): AppState {
+function upgrade(stored: AppState): AppState {
+  // Data saved before the VAT tab existed starts with an empty VAT list.
+  const saved = { ...stored, vatClients: stored.vatClients ?? [], vatChecks: stored.vatChecks ?? {} }
   if (saved.clerks) return tidy(saved)
   return tidy(addDemoTeam(saved))
 }
