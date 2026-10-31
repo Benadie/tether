@@ -28,7 +28,8 @@ export const CHECKS: { key: keyof VatChecks; label: string }[] = [
   { key: 'followedUp', label: 'Followed up' },
   { key: 'doneByClerk', label: 'Done by clerk' },
   { key: 'reviewed', label: 'Reviewed' },
-  { key: 'empHandedIn', label: 'EMP handed in' },
+  // Stored as empHandedIn (its first name) so existing ticks carry over.
+  { key: 'empHandedIn', label: 'VAT 201 handed in' },
 ]
 
 /** "2026-10" */
