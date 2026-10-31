@@ -315,14 +315,14 @@ label input:focus { outline: 2px solid var(--accent); border-color: transparent;
 .vat-table { min-width: 880px; }
 .vat-row {
   display: grid; align-items: stretch;
-  grid-template-columns: minmax(170px, 2fr) 96px 104px 92px minmax(120px, 1.4fr) repeat(4, 78px);
+  grid-template-columns: minmax(200px, 2.2fr) 110px 96px minmax(150px, 1.6fr) repeat(4, 84px);
   border-bottom: 1px solid var(--line);
 }
 .vat-row > * { padding: 10px 10px; display: flex; flex-direction: column; justify-content: center; min-width: 0; font-size: 15px; }
 .vat-head-group { border-bottom: 0; }
-.vat-head-group .vat-span-info { grid-column: 1 / 6; padding: 0; }
+.vat-head-group .vat-span-info { grid-column: 1 / 5; padding: 0; }
 .vat-month-head {
-  grid-column: 6 / 10; background: var(--dark); color: #fff; font-weight: 700; letter-spacing: 0.08em;
+  grid-column: 5 / 9; background: var(--dark); color: #fff; font-weight: 700; letter-spacing: 0.08em;
   align-items: center; padding: 6px; border-radius: 12px 12px 0 0; margin-top: 12px;
 }
 .vat-head { background: var(--accent-soft); position: sticky; top: 0; z-index: 1; }

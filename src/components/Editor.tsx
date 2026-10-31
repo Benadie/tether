@@ -298,7 +298,6 @@ function VatClientDialog({ vat, cycle, onClose }: { vat?: VatClient; cycle?: Vat
   const [client, setClient] = useState(vat?.client ?? '')
   const [period, setPeriod] = useState<VatCycle>(vat?.cycle ?? cycle ?? 'monthly')
   const [responsible, setResponsible] = useState(vat?.responsible ?? '')
-  const [manager, setManager] = useState(vat?.portfolioManager ?? '')
   const [notes, setNotes] = useState(vat?.notes ?? '')
 
   function save() {
@@ -307,7 +306,6 @@ function VatClientDialog({ vat, cycle, onClose }: { vat?: VatClient; cycle?: Vat
       client: client.trim(),
       cycle: period,
       responsible: responsible.trim() || undefined,
-      portfolioManager: manager.trim() || undefined,
       notes: notes.trim() || undefined,
     }
     if (vat) store.updateVatClient(vat.id, fields)
@@ -341,10 +339,6 @@ function VatClientDialog({ vat, cycle, onClose }: { vat?: VatClient; cycle?: Vat
         <label>
           Responsible
           <NameInput id="vat-responsible" value={responsible} onChange={setResponsible} extra={list.map((v) => v.responsible ?? '')} placeholder="e.g. Lyrisha" />
-        </label>
-        <label>
-          Portfolio manager
-          <NameInput id="vat-manager" value={manager} onChange={setManager} extra={list.map((v) => v.portfolioManager ?? '')} placeholder="e.g. Chane" />
         </label>
       </div>
       <p className="muted small-note">{CYCLE_HINT[period]}</p>

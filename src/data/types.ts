@@ -45,6 +45,7 @@ export interface VatClient {
   cycle: VatCycle
   /** Name of the person doing it, e.g. "Lyrisha" */
   responsible?: string
+  /** No longer shown (you're the portfolio manager for all); kept so saved values aren't lost */
   portfolioManager?: string
   /** e.g. "Processing; VAT; payroll" */
   notes?: string

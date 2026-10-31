@@ -78,7 +78,6 @@ export function VatScreen() {
             <div className="vat-row vat-head">
               <span>Client</span>
               <span>Responsible</span>
-              <span>Portfolio manager</span>
               <span>Period</span>
               <span>Notes</span>
               {CHECKS.map((c) => (
@@ -107,7 +106,6 @@ export function VatScreen() {
                     <small>{periodLabel(c.cycle, month)}</small>
                   </button>
                   <span className="vat-strong">{c.responsible ?? ''}</span>
-                  <span>{c.portfolioManager ?? ''}</span>
                   <span>
                     <i className={`vat-cycle ${c.cycle}`}>{CYCLE_SHORT[c.cycle as VatCycle]}</i>
                   </span>
