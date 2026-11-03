@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, type FormEvent, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
 import { useStore } from '../data/store'
-import type { CalEvent, Clerk, Client, PayrollClient, Repeat, Task, TaskStatus, VatClient, VatCycle } from '../data/types'
+import type { CalEvent, Clerk, Deadline, PayrollClient, Repeat, Task, TaskStatus, VatClient, VatCycle } from '../data/types'
 import { CYCLE_HINT, CYCLE_LABEL } from '../lib/vat'
+import { WEEKDAYS, describe } from '../lib/deadlines'
 import { at, hhmm, isoDate, pad, parseIsoDate } from '../lib/dates'
 import { DateInput } from './DateInput'
 
@@ -14,7 +15,7 @@ type Open =
   | { kind: 'clerk'; clerk?: Clerk }
   | { kind: 'vat'; vat?: VatClient; cycle?: VatCycle }
   | { kind: 'payroll'; client?: PayrollClient }
-  | { kind: 'client'; client?: Client; onCreate?: (c: Client) => void }
+  | { kind: 'deadline'; deadline?: Deadline }
 
 type EditorApi = {
   editTask: (task: Task) => void
@@ -27,8 +28,8 @@ type EditorApi = {
   newVatClient: (cycle?: VatCycle) => void
   editPayrollClient: (client: PayrollClient) => void
   newPayrollClient: () => void
-  editClient: (client: Client) => void
-  newClient: (onCreate?: (c: Client) => void) => void
+  editDeadline: (deadline: Deadline) => void
+  newDeadline: () => void
 }
 
 export const STATUS_LABEL: Record<TaskStatus, string> = {
@@ -55,8 +56,8 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     newVatClient: (cycle) => setOpen({ kind: 'vat', cycle }),
     editPayrollClient: (client) => setOpen({ kind: 'payroll', client }),
     newPayrollClient: () => setOpen({ kind: 'payroll' }),
-    editClient: (client) => setOpen({ kind: 'client', client }),
-    newClient: (onCreate) => setOpen({ kind: 'client', onCreate }),
+    editDeadline: (deadline) => setOpen({ kind: 'deadline', deadline }),
+    newDeadline: () => setOpen({ kind: 'deadline' }),
   }
 
   return (
@@ -67,7 +68,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
       {open?.kind === 'clerk' && <ClerkDialog clerk={open.clerk} onClose={close} />}
       {open?.kind === 'vat' && <VatClientDialog vat={open.vat} cycle={open.cycle} onClose={close} />}
       {open?.kind === 'payroll' && <PayrollClientDialog client={open.client} onClose={close} />}
-      {open?.kind === 'client' && <ClientDialog client={open.client} onCreate={open.onCreate} onClose={close} />}
+      {open?.kind === 'deadline' && <DeadlineDialog deadline={open.deadline} onClose={close} />}
     </Ctx.Provider>
   )
 }
@@ -128,9 +129,6 @@ function TaskDialog({ task, initial, onClose }: { task?: Task; initial?: Partial
   const [assignee, setAssignee] = useState(base?.assignee ?? '')
   const [status, setStatus] = useState<TaskStatus>(base?.status ?? 'todo')
   const [repeat, setRepeat] = useState<Repeat | ''>(base?.repeat ?? '')
-  const [company, setCompany] = useState(base?.company ?? '')
-  // A client typed here that is on the Clients tab gets linked, so the task shows on that client's page.
-  const linked = store.state.clients.find((c) => c.name.trim().toLowerCase() === client.trim().toLowerCase())
 
   function save() {
     if (!title.trim()) return
@@ -140,8 +138,6 @@ function TaskDialog({ task, initial, onClose }: { task?: Task; initial?: Partial
       time: (due && time) || undefined,
       from: from.trim() || undefined,
       client: client.trim() || undefined,
-      clientId: linked?.id,
-      company: linked && company ? company : undefined,
       assignee: assignee || undefined,
       status: assignee ? status : undefined,
       repeat: repeat || undefined,
@@ -178,24 +174,10 @@ function TaskDialog({ task, initial, onClose }: { task?: Task; initial?: Partial
           Client
           <ClientInput value={client} onChange={setClient} />
         </label>
-        {linked && linked.companies.length > 0 ? (
-          <label>
-            Company
-            <select value={company} onChange={(e) => setCompany(e.target.value)}>
-              <option value="">Whole group</option>
-              {linked.companies.map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : (
-          <label>
-            Asked by (optional)
-            <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="e.g. Audit partner" />
-          </label>
-        )}
+        <label>
+          Asked by (optional)
+          <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="e.g. Audit partner" />
+        </label>
       </div>
       <div className="row">
         <label>
@@ -294,7 +276,6 @@ function ClientInput({ value, onChange }: { value: string; onChange: (v: string)
   const { state } = useStore()
   const clients = [
     ...new Set([
-      ...state.clients.map((c) => c.name),
       ...state.tasks.map((t) => t.client),
       ...state.vatClients.map((v) => v.client),
       ...state.payrollClients.map((p) => p.client),
@@ -389,44 +370,66 @@ function VatClientDialog({ vat, cycle, onClose }: { vat?: VatClient; cycle?: Vat
   )
 }
 
-function ClientDialog(props: { client?: Client; onCreate?: (c: Client) => void; onClose: () => void }) {
+function DeadlineDialog({ deadline, onClose }: { deadline?: Deadline; onClose: () => void }) {
   const store = useStore()
-  const existing = props.client
-  const [name, setName] = useState(existing?.name ?? '')
-  const [code, setCode] = useState(existing?.code ?? '')
-  const taken = store.state.clients.some((c) => c.id !== existing?.id && c.name.trim().toLowerCase() === name.trim().toLowerCase())
+  const [title, setTitle] = useState(deadline?.title ?? '')
+  const [every, setEvery] = useState<Deadline['every']>(deadline?.every ?? 'month')
+  const [day, setDay] = useState(deadline?.day ?? 25)
 
   function save() {
-    if (!name.trim() || taken) return
-    const fields = { name: name.trim(), code: code.trim() || undefined }
-    if (existing) store.updateClient(existing.id, fields)
-    else props.onCreate?.(store.addClient(fields))
-    props.onClose()
+    if (!title.trim()) return
+    const fields = { title: title.trim(), every, day }
+    if (deadline) store.updateDeadline(deadline.id, fields)
+    else store.addDeadline(fields)
+    onClose()
   }
 
   return (
     <Shell
-      title={existing ? 'Client' : 'Add a client'}
-      onClose={props.onClose}
+      title={deadline ? 'Deadline' : 'Add a deadline'}
+      onClose={onClose}
       onSubmit={save}
-      onDelete={existing ? () => store.removeClient(existing.id) : undefined}
-      saveLabel={existing ? 'Save' : 'Add client'}
+      onDelete={deadline ? () => store.removeDeadline(deadline.id) : undefined}
+      saveLabel={deadline ? 'Save' : 'Add deadline'}
     >
+      <label>
+        What's due
+        <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Client billing run" />
+      </label>
       <div className="row">
-        <label style={{ flex: 2 }}>
-          Client or group name
-          <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Moretti Group" />
+        <label>
+          Comes back
+          <select
+            value={every}
+            onChange={(e) => {
+              const next = e.target.value as Deadline['every']
+              setEvery(next)
+              setDay(next === 'week' ? 5 : 25)
+            }}
+          >
+            <option value="month">Every month</option>
+            <option value="week">Every week</option>
+          </select>
         </label>
         <label>
-          Code (optional)
-          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. MOR001" />
+          {every === 'week' ? 'On' : 'Day'}
+          <select value={day} onChange={(e) => setDay(Number(e.target.value))}>
+            {every === 'week'
+              ? WEEKDAYS.map((w, i) => (
+                  <option key={w} value={i + 1}>
+                    {w}
+                  </option>
+                ))
+              : Array.from({ length: 31 }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>
+                    {n === 31 ? 'Last day' : n}
+                  </option>
+                ))}
+          </select>
         </label>
       </div>
-      {taken && <p className="late small-note">There's already a client called that.</p>}
       <p className="muted small-note">
-        {existing
-          ? 'Removing a client takes them off the Clients tab; their tasks and notes are kept.'
-          : 'After adding, list the companies in the group on the client page.'}
+        {describe({ id: '', title, every, day })}. A date on a weekend moves to the Friday before.
       </p>
     </Shell>
   )

@@ -4,7 +4,8 @@ import { addDays, addMonths, isoDate, parseIsoDate } from '../lib/dates'
 import { uid } from '../lib/id'
 import { makeSeed } from './seed'
 import { OLD_INK_TO_NEW } from '../components/ColorPicker'
-import type { AppState, CalEvent, Clerk, Client, Company, NoteLine, NotePage, Repeat, PayrollClient, PayrollItem, PayrollMark, Settings, Task, VatChecks, VatClient } from './types'
+import { defaultDeadlines } from '../lib/deadlines'
+import type { AppState, CalEvent, Clerk, Deadline, NoteLine, NotePage, Repeat, PayrollClient, PayrollItem, PayrollMark, Settings, Task, VatChecks, VatClient } from './types'
 
 // Everything lives on the tablet (IndexedDB); nothing is sent anywhere.
 const KEY = 'tether-state-v1'
@@ -37,14 +38,11 @@ type Store = {
   removePayrollClient: (id: string) => void
   /** Moves a box on: blank → ✓ → ✗ → n/a → blank */
   cyclePayrollMark: (clientId: string, month: string, item: PayrollItem) => void
-  addClient: (c: { name: string; code?: string }) => Client
-  updateClient: (id: string, patch: Partial<Pick<Client, 'name' | 'code' | 'engagedFrom' | 'engagedTo'>>) => void
-  removeClient: (id: string) => void
-  addCompany: (clientId: string, name: string) => void
-  updateCompany: (clientId: string, companyId: string, patch: Partial<Company>) => void
-  removeCompany: (clientId: string, companyId: string) => void
-  /** The notes page for a client, or one company in its group (not stored until something is written on it) */
-  clientPage: (clientId: string, companyId?: string) => NotePage
+  addDeadline: (d: Omit<Deadline, 'id'>) => void
+  updateDeadline: (id: string, patch: Partial<Deadline>) => void
+  removeDeadline: (id: string) => void
+  /** Ticks or unticks this period's box */
+  toggleDeadline: (key: string) => void
   setSettings: (patch: Partial<Settings>) => void
   resetDemo: () => void
   restore: (data: AppState) => void
@@ -64,6 +62,8 @@ const emptyState = (name = ''): AppState => ({
   payrollClients: [],
   payrollChecks: {},
   clients: [],
+  deadlines: defaultDeadlines(),
+  deadlineChecks: {},
   settings: { name },
 })
 
@@ -298,70 +298,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })
       },
 
-      addClient(c) {
-        const client: Client = { id: uid(), name: c.name, code: c.code, companies: [], created: new Date().toISOString() }
-        update((s) => ({ ...s, clients: [...s.clients, client] }))
-        return client
+      addDeadline(d) {
+        update((s) => ({ ...s, deadlines: [...s.deadlines, { ...d, id: uid() }] }))
       },
 
-      // Renaming also renames the client on its tasks and notes page.
-      updateClient(id, patch) {
+      updateDeadline(id, patch) {
+        update((s) => ({ ...s, deadlines: s.deadlines.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
+      },
+
+      // Takes it off the checklist. Past ticks are kept.
+      removeDeadline(id) {
+        update((s) => ({ ...s, deadlines: s.deadlines.filter((x) => x.id !== id) }))
+      },
+
+      toggleDeadline(key) {
         update((s) => {
-          const old = s.clients.find((c) => c.id === id)
-          const renamed = patch.name && old && patch.name !== old.name
-          return {
-            ...s,
-            clients: s.clients.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-            tasks: renamed ? s.tasks.map((t) => (t.clientId === id ? { ...t, client: patch.name } : t)) : s.tasks,
-            pages: renamed
-              ? s.pages.map((p) => (p.clientId === id && !p.companyId ? { ...p, title: `${patch.name} notes` } : p))
-              : s.pages,
-          }
+          const checks = { ...s.deadlineChecks }
+          if (checks[key]) delete checks[key]
+          else checks[key] = new Date().toISOString()
+          return { ...s, deadlineChecks: checks }
         })
-      },
-
-      // Takes the client off the Clients tab. Their tasks and notes page are kept.
-      removeClient(id) {
-        update((s) => ({ ...s, clients: s.clients.filter((c) => c.id !== id) }))
-      },
-
-      addCompany(clientId, name) {
-        update((s) => ({
-          ...s,
-          clients: s.clients.map((c) => (c.id === clientId ? { ...c, companies: [...c.companies, { id: uid(), name }] } : c)),
-        }))
-      },
-
-      updateCompany(clientId, companyId, patch) {
-        update((s) => ({
-          ...s,
-          clients: s.clients.map((c) =>
-            c.id === clientId ? { ...c, companies: c.companies.map((x) => (x.id === companyId ? { ...x, ...patch } : x)) } : c,
-          ),
-        }))
-      },
-
-      removeCompany(clientId, companyId) {
-        update((s) => ({
-          ...s,
-          clients: s.clients.map((c) => (c.id === clientId ? { ...c, companies: c.companies.filter((x) => x.id !== companyId) } : c)),
-        }))
-      },
-
-      clientPage(clientId, companyId) {
-        const client = state.clients.find((c) => c.id === clientId)
-        const company = companyId ? client?.companies.find((x) => x.id === companyId) : undefined
-        return (
-          state.pages.find((p) => p.clientId === clientId && p.companyId === companyId) ?? {
-            id: companyId ? `client-${clientId}-${companyId}` : `client-${clientId}`,
-            title: `${company?.name ?? client?.name ?? 'Client'} notes`,
-            clientId,
-            companyId,
-            created: new Date().toISOString(),
-            updated: new Date().toISOString(),
-            lines: [],
-          }
-        )
       },
 
       setSettings(patch) {
@@ -410,6 +366,8 @@ function upgrade(stored: AppState): AppState {
     payrollClients: stored.payrollClients ?? [],
     payrollChecks: stored.payrollChecks ?? {},
     clients: stored.clients ?? [],
+    deadlines: stored.deadlines ?? defaultDeadlines(),
+    deadlineChecks: stored.deadlineChecks ?? {},
   }
   if (saved.clerks) return tidy(saved)
   return tidy(addDemoTeam(saved))

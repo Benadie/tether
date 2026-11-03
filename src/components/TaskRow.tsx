@@ -30,7 +30,7 @@ export function ReviewRow({ task }: { task: Task }) {
   const { state, toggleTask } = useStore()
   const { editTask } = useEditor()
   const clerk = state.clerks.find((c) => c.id === task.assignee)
-  const meta = [clerk ? `From ${clerk.name.split(' ')[0]}` : 'From the team', task.company ?? task.client, task.due && dueLabel(task)]
+  const meta = [clerk ? `From ${clerk.name.split(' ')[0]}` : 'From the team', task.client, task.due && dueLabel(task)]
     .filter(Boolean)
     .join(', ')
   return (
@@ -50,7 +50,7 @@ export function TaskRow({ task, showDue = true }: { task: Task; showDue?: boolea
   const { editTask } = useEditor()
   const now = new Date()
   const late = isLate(task, isoDate(now))
-  const meta = [showDue && dueLabel(task, now), task.time, task.company ?? task.client, task.from && `from ${task.from}`]
+  const meta = [showDue && dueLabel(task, now), task.time, task.client, task.from && `from ${task.from}`]
     .filter(Boolean)
     .join(', ')
 

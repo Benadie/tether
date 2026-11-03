@@ -375,13 +375,6 @@ export function InkPad(props: {
     setDialog({ kind, row: selected, title: when?.rest ?? text, date: when?.date, time: when?.time })
   }
 
-  /** Tasks made on a client's notes page belong to that client. */
-  function clientLink() {
-    const client = page.clientId ? store.state.clients.find((c) => c.id === page.clientId) : undefined
-    const company = client?.companies.find((x) => x.id === page.companyId)
-    return client ? { clientId: client.id, client: client.name, company: company?.name } : {}
-  }
-
   /** One tap: "Call bank Wed 10:00" becomes a reminder at that time (or a task due that day). */
   function quickRemind() {
     if (selected == null) return
@@ -391,7 +384,6 @@ export function InkPad(props: {
     if (!when?.date) return
     const noteRef = { pageId: page.id, lineId: line.id }
     const t = store.addTask({
-      ...clientLink(),
       title: when.rest,
       due: when.date,
       time: when.time,
@@ -451,11 +443,11 @@ export function InkPad(props: {
     let tag: LineTag
 
     if (kind === 'task') {
-      const t = store.addTask({ ...clientLink(), title: r.title, due: r.date, time: r.time || undefined, source: 'note', noteRef })
+      const t = store.addTask({ title: r.title, due: r.date, time: r.time || undefined, source: 'note', noteRef })
       tag = { kind: 'task', label: r.time ? `${r.time} task` : 'Task made', refId: t.id }
     } else if (kind === 'remind') {
       const remindAt = at(parseIsoDate(r.date), r.time)
-      const t = store.addTask({ ...clientLink(), title: r.title, due: r.date, source: 'note', noteRef, remindAt })
+      const t = store.addTask({ title: r.title, due: r.date, source: 'note', noteRef, remindAt })
       tag = { kind: 'reminder', label: `Remind ${r.time}`, refId: t.id }
       if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission()
     } else if (kind === 'calendar') {

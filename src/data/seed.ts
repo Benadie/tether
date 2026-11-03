@@ -1,5 +1,6 @@
 import { addDays, at, isoDate, startOfDay, workWeekStart } from '../lib/dates'
 import { uid } from '../lib/id'
+import { defaultDeadlines } from '../lib/deadlines'
 import type { AppState, CalEvent, Clerk, NoteLine, NotePage, Task } from './types'
 
 /** Demo data for an audit & accounting practice, laid out around today's date.
@@ -102,30 +103,10 @@ export function makeSeed(now = new Date()): AppState {
   ])
   planning.updated = at(day(-3), '11:20')
 
-  const harlowGroup = {
-    id: uid(),
-    name: 'Harlow Group',
-    code: 'HAR001',
-    created: day(-20).toISOString(),
-    companies: [
-      { id: uid(), name: 'Harlow Logistics (Pty) Ltd' },
-      { id: uid(), name: 'Harlow Properties (Pty) Ltd', note: 'Year end Feb' },
-      { id: uid(), name: 'Harlow Fleet Leasing (Pty) Ltd' },
-      { id: uid(), name: 'Harlow Family Trust', note: 'Trust return only' },
-    ],
-  }
-  const clients = [
-    harlowGroup,
-    { id: uid(), name: 'Kestrel Retail CC', code: 'KES002', created: day(-30).toISOString(), companies: [] },
-  ]
-  const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0)
-  tasks.push(
-    task('Audit due', monthEnd, { clientId: harlowGroup.id, client: 'Harlow Group', company: 'Harlow Logistics (Pty) Ltd' }),
-    task('Send engagement letter for trust', day(5), { clientId: harlowGroup.id, client: 'Harlow Group', company: 'Harlow Family Trust' }),
-  )
-
   return {
-    clients,
+    clients: [],
+    deadlines: defaultDeadlines(),
+    deadlineChecks: {},
     tasks,
     events,
     pages: [

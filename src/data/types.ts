@@ -24,13 +24,13 @@ export interface Task {
   client?: string
   /** Comes back automatically when ticked off */
   repeat?: Repeat
-  /** The client (Clients tab) this task belongs to */
+  /** Old Clients tab link (no longer shown; kept) */
   clientId?: string
   /** Which company in the client's group it's for, e.g. "Moretti Properties (Pty) Ltd" */
   company?: string
 }
 
-/** A client on the Clients tab: one company, or a group of companies. */
+/** A client from the old Clients tab (no longer shown; kept so saved data isn't lost). */
 export interface Client {
   id: string
   name: string
@@ -102,6 +102,15 @@ export interface PayrollMark {
 
 export type PayrollItem = 'followedUp' | 'completedByClerk' | 'sentToClient' | 'empSubmitted'
 export type PayrollChecks = Partial<Record<PayrollItem, PayrollMark>>
+
+/** A deadline that comes back every month or week, e.g. "EMP201 submissions" on the 7th. */
+export interface Deadline {
+  id: string
+  title: string
+  every: 'month' | 'week'
+  /** month: day of the month (31 = last day); week: 1 = Monday … 5 = Friday */
+  day: number
+}
 
 export interface CalEvent {
   id: string
@@ -196,5 +205,8 @@ export interface AppState {
   /** Checklists keyed "clientId:YYYY-MM" (the payroll month) */
   payrollChecks: Record<string, PayrollChecks>
   clients: Client[]
+  deadlines: Deadline[]
+  /** Ticked deadlines keyed "deadlineId:period" (YYYY-MM, or the week's Monday YYYY-MM-DD), ISO date ticked */
+  deadlineChecks: Record<string, string>
   settings: Settings
 }
