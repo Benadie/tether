@@ -1,9 +1,8 @@
 import { createContext, useContext, useState, type FormEvent, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
 import { useStore } from '../data/store'
-import type { CalEvent, Clerk, Deadline, PayrollClient, Repeat, Task, TaskStatus, VatClient, VatCycle } from '../data/types'
-import { CYCLE_HINT, CYCLE_LABEL } from '../lib/vat'
-import { WEEKDAYS, describe } from '../lib/deadlines'
+import type { CalEvent, Clerk, PayrollClient, Repeat, Target, Task, TaskStatus, VatClient, VatCycle } from '../data/types'
+import { CYCLE_HINT, CYCLE_LABEL, longMonth } from '../lib/vat'
 import { at, hhmm, isoDate, pad, parseIsoDate } from '../lib/dates'
 import { DateInput } from './DateInput'
 
@@ -15,7 +14,7 @@ type Open =
   | { kind: 'clerk'; clerk?: Clerk }
   | { kind: 'vat'; vat?: VatClient; cycle?: VatCycle }
   | { kind: 'payroll'; client?: PayrollClient }
-  | { kind: 'deadline'; deadline?: Deadline }
+  | { kind: 'target'; target?: Target; month: string }
 
 type EditorApi = {
   editTask: (task: Task) => void
@@ -28,8 +27,8 @@ type EditorApi = {
   newVatClient: (cycle?: VatCycle) => void
   editPayrollClient: (client: PayrollClient) => void
   newPayrollClient: () => void
-  editDeadline: (deadline: Deadline) => void
-  newDeadline: () => void
+  editTarget: (target: Target) => void
+  newTarget: (month: string) => void
 }
 
 export const STATUS_LABEL: Record<TaskStatus, string> = {
@@ -56,8 +55,8 @@ export function EditorProvider({ children }: { children: ReactNode }) {
     newVatClient: (cycle) => setOpen({ kind: 'vat', cycle }),
     editPayrollClient: (client) => setOpen({ kind: 'payroll', client }),
     newPayrollClient: () => setOpen({ kind: 'payroll' }),
-    editDeadline: (deadline) => setOpen({ kind: 'deadline', deadline }),
-    newDeadline: () => setOpen({ kind: 'deadline' }),
+    editTarget: (target) => setOpen({ kind: 'target', target, month: target.month }),
+    newTarget: (month) => setOpen({ kind: 'target', month }),
   }
 
   return (
@@ -68,7 +67,7 @@ export function EditorProvider({ children }: { children: ReactNode }) {
       {open?.kind === 'clerk' && <ClerkDialog clerk={open.clerk} onClose={close} />}
       {open?.kind === 'vat' && <VatClientDialog vat={open.vat} cycle={open.cycle} onClose={close} />}
       {open?.kind === 'payroll' && <PayrollClientDialog client={open.client} onClose={close} />}
-      {open?.kind === 'deadline' && <DeadlineDialog deadline={open.deadline} onClose={close} />}
+      {open?.kind === 'target' && <TargetDialog target={open.target} month={open.month} onClose={close} />}
     </Ctx.Provider>
   )
 }
@@ -279,6 +278,7 @@ function ClientInput({ value, onChange }: { value: string; onChange: (v: string)
       ...state.tasks.map((t) => t.client),
       ...state.vatClients.map((v) => v.client),
       ...state.payrollClients.map((p) => p.client),
+      ...state.targets.map((t) => t.client),
     ]),
   ]
     .filter(Boolean)
@@ -370,67 +370,55 @@ function VatClientDialog({ vat, cycle, onClose }: { vat?: VatClient; cycle?: Vat
   )
 }
 
-function DeadlineDialog({ deadline, onClose }: { deadline?: Deadline; onClose: () => void }) {
+function TargetDialog({ target, month, onClose }: { target?: Target; month: string; onClose: () => void }) {
   const store = useStore()
-  const [title, setTitle] = useState(deadline?.title ?? '')
-  const [every, setEvery] = useState<Deadline['every']>(deadline?.every ?? 'month')
-  const [day, setDay] = useState(deadline?.day ?? 25)
+  const list = store.state.targets
+  // A new row starts with the names and dates used on the row before it.
+  const last = list.filter((t) => t.month === month).at(-1)
+  const [client, setClient] = useState(target?.client ?? '')
+  const [responsible, setResponsible] = useState(target?.responsible ?? last?.responsible ?? '')
+  const [reviewDue, setReviewDue] = useState(target?.reviewDue ?? last?.reviewDue ?? '')
+  const [queriesDue, setQueriesDue] = useState(target?.queriesDue ?? last?.queriesDue ?? '')
 
   function save() {
-    if (!title.trim()) return
-    const fields = { title: title.trim(), every, day }
-    if (deadline) store.updateDeadline(deadline.id, fields)
-    else store.addDeadline(fields)
+    if (!client.trim()) return
+    const fields = {
+      client: client.trim(),
+      responsible: responsible.trim() || undefined,
+      reviewDue: reviewDue || undefined,
+      queriesDue: queriesDue || undefined,
+    }
+    if (target) store.updateTarget(target.id, fields)
+    else store.addTarget({ ...fields, month })
     onClose()
   }
 
   return (
     <Shell
-      title={deadline ? 'Deadline' : 'Add a deadline'}
+      title={target ? 'Target' : `Add a target for ${longMonth(month)}`}
       onClose={onClose}
       onSubmit={save}
-      onDelete={deadline ? () => store.removeDeadline(deadline.id) : undefined}
-      saveLabel={deadline ? 'Save' : 'Add deadline'}
+      onDelete={target ? () => store.removeTarget(target.id) : undefined}
+      saveLabel={target ? 'Save' : 'Add target'}
     >
       <label>
-        What's due
-        <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Client billing run" />
+        Client
+        <ClientInput value={client} onChange={setClient} />
+      </label>
+      <label>
+        Responsible
+        <NameInput id="target-responsible" value={responsible} onChange={setResponsible} extra={list.map((t) => t.responsible ?? '')} placeholder="e.g. Herman" />
       </label>
       <div className="row">
         <label>
-          Comes back
-          <select
-            value={every}
-            onChange={(e) => {
-              const next = e.target.value as Deadline['every']
-              setEvery(next)
-              setDay(next === 'week' ? 5 : 25)
-            }}
-          >
-            <option value="month">Every month</option>
-            <option value="week">Every week</option>
-          </select>
+          1st review due
+          <DateInput value={reviewDue} onChange={setReviewDue} />
         </label>
         <label>
-          {every === 'week' ? 'On' : 'Day'}
-          <select value={day} onChange={(e) => setDay(Number(e.target.value))}>
-            {every === 'week'
-              ? WEEKDAYS.map((w, i) => (
-                  <option key={w} value={i + 1}>
-                    {w}
-                  </option>
-                ))
-              : Array.from({ length: 31 }, (_, i) => i + 1).map((n) => (
-                  <option key={n} value={n}>
-                    {n === 31 ? 'Last day' : n}
-                  </option>
-                ))}
-          </select>
+          Queries due
+          <DateInput value={queriesDue} onChange={setQueriesDue} />
         </label>
       </div>
-      <p className="muted small-note">
-        {describe({ id: '', title, every, day })}. A date on a weekend moves to the Friday before.
-      </p>
     </Shell>
   )
 }

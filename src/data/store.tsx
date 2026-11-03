@@ -5,7 +5,7 @@ import { uid } from '../lib/id'
 import { makeSeed } from './seed'
 import { OLD_INK_TO_NEW } from '../components/ColorPicker'
 import { defaultDeadlines } from '../lib/deadlines'
-import type { AppState, CalEvent, Clerk, Deadline, NoteLine, NotePage, Repeat, PayrollClient, PayrollItem, PayrollMark, Settings, Task, VatChecks, VatClient } from './types'
+import type { AppState, CalEvent, Clerk, NoteLine, NotePage, Repeat, PayrollClient, PayrollItem, PayrollMark, Settings, Target, TargetItem, Task, VatChecks, VatClient } from './types'
 
 // Everything lives on the tablet (IndexedDB); nothing is sent anywhere.
 const KEY = 'tether-state-v1'
@@ -38,11 +38,13 @@ type Store = {
   removePayrollClient: (id: string) => void
   /** Moves a box on: blank → ✓ → ✗ → n/a → blank */
   cyclePayrollMark: (clientId: string, month: string, item: PayrollItem) => void
-  addDeadline: (d: Omit<Deadline, 'id'>) => void
-  updateDeadline: (id: string, patch: Partial<Deadline>) => void
-  removeDeadline: (id: string) => void
-  /** Ticks or unticks this period's box */
-  toggleDeadline: (key: string) => void
+  addTarget: (t: Omit<Target, 'id' | 'checks'>) => void
+  updateTarget: (id: string, patch: Partial<Target>) => void
+  removeTarget: (id: string) => void
+  /** Starts a month with last month's clients (dates moved on a month, boxes blank) */
+  copyTargets: (from: string, to: string) => void
+  /** Moves a box on: blank → ✓ → ✗ → n/a → blank */
+  cycleTargetMark: (id: string, item: TargetItem) => void
   setSettings: (patch: Partial<Settings>) => void
   resetDemo: () => void
   restore: (data: AppState) => void
@@ -62,6 +64,7 @@ const emptyState = (name = ''): AppState => ({
   payrollClients: [],
   payrollChecks: {},
   clients: [],
+  targets: [],
   deadlines: defaultDeadlines(),
   deadlineChecks: {},
   settings: { name },
@@ -298,26 +301,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })
       },
 
-      addDeadline(d) {
-        update((s) => ({ ...s, deadlines: [...s.deadlines, { ...d, id: uid() }] }))
+      addTarget(t) {
+        update((s) => ({ ...s, targets: [...s.targets, { ...t, id: uid(), checks: {} }] }))
       },
 
-      updateDeadline(id, patch) {
-        update((s) => ({ ...s, deadlines: s.deadlines.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
+      updateTarget(id, patch) {
+        update((s) => ({ ...s, targets: s.targets.map((x) => (x.id === id ? { ...x, ...patch } : x)) }))
       },
 
-      // Takes it off the checklist. Past ticks are kept.
-      removeDeadline(id) {
-        update((s) => ({ ...s, deadlines: s.deadlines.filter((x) => x.id !== id) }))
+      removeTarget(id) {
+        update((s) => ({ ...s, targets: s.targets.filter((x) => x.id !== id) }))
       },
 
-      toggleDeadline(key) {
-        update((s) => {
-          const checks = { ...s.deadlineChecks }
-          if (checks[key]) delete checks[key]
-          else checks[key] = new Date().toISOString()
-          return { ...s, deadlineChecks: checks }
-        })
+      copyTargets(from, to) {
+        const later = (iso?: string) => (iso ? isoDate(addMonths(parseIsoDate(iso), 1)) : undefined)
+        update((s) => ({
+          ...s,
+          targets: [
+            ...s.targets,
+            ...s.targets
+              .filter((t) => t.month === from)
+              .map((t) => ({ ...t, id: uid(), month: to, reviewDue: later(t.reviewDue), queriesDue: later(t.queriesDue), checks: {} })),
+          ],
+        }))
+      },
+
+      cycleTargetMark(id, item) {
+        const order: (PayrollMark['s'] | undefined)[] = [undefined, 'done', 'no', 'na']
+        update((s) => ({
+          ...s,
+          targets: s.targets.map((t) => {
+            if (t.id !== id) return t
+            const next = order[(order.indexOf(t.checks[item]?.s) + 1) % order.length]
+            return { ...t, checks: { ...t.checks, [item]: next ? { s: next, at: new Date().toISOString() } : undefined } }
+          }),
+        }))
       },
 
       setSettings(patch) {
@@ -366,6 +384,7 @@ function upgrade(stored: AppState): AppState {
     payrollClients: stored.payrollClients ?? [],
     payrollChecks: stored.payrollChecks ?? {},
     clients: stored.clients ?? [],
+    targets: stored.targets ?? [],
     deadlines: stored.deadlines ?? defaultDeadlines(),
     deadlineChecks: stored.deadlineChecks ?? {},
   }

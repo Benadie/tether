@@ -103,6 +103,24 @@ export interface PayrollMark {
 export type PayrollItem = 'followedUp' | 'completedByClerk' | 'sentToClient' | 'empSubmitted'
 export type PayrollChecks = Partial<Record<PayrollItem, PayrollMark>>
 
+export type TargetItem = 'reviewed' | 'queriesDone' | 'fileGiven' | 'draftSent'
+
+/** One row on the monthly Targets sheet, e.g. "Atlantic Steam CC" for October 2026. */
+export interface Target {
+  id: string
+  /** YYYY-MM: the month the target belongs to */
+  month: string
+  client: string
+  /** e.g. "Herman" */
+  responsible?: string
+  /** YYYY-MM-DD */
+  reviewDue?: string
+  /** YYYY-MM-DD */
+  queriesDue?: string
+  /** ✓ / ✗ / n/a per column, same as the payroll boxes */
+  checks: Partial<Record<TargetItem, PayrollMark>>
+}
+
 /** A deadline that comes back every month or week, e.g. "EMP201 submissions" on the 7th. */
 export interface Deadline {
   id: string
@@ -205,6 +223,8 @@ export interface AppState {
   /** Checklists keyed "clientId:YYYY-MM" (the payroll month) */
   payrollChecks: Record<string, PayrollChecks>
   clients: Client[]
+  targets: Target[]
+  /** No longer shown (the Scorecard was taken out); kept so saved data isn't lost */
   deadlines: Deadline[]
   /** Ticked deadlines keyed "deadlineId:period" (YYYY-MM, or the week's Monday YYYY-MM-DD), ISO date ticked */
   deadlineChecks: Record<string, string>

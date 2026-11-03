@@ -105,6 +105,7 @@ export function makeSeed(now = new Date()): AppState {
 
   return {
     clients: [],
+    targets: [],
     deadlines: defaultDeadlines(),
     deadlineChecks: {},
     tasks,
